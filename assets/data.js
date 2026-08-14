@@ -211,18 +211,18 @@
     me: { name: "이웃님", region: "서울 마포구 연남동" },
     // 시(구) — 현재는 마포구 기준
     district: "서울 마포구",
-    // 동(洞) 목록 — 동마다 지금 밝기(봉사·기부가 쌓인 정도)가 달라요
+    // 동(洞) 목록 — brightness: 밤하늘 밝기(0~100, 색), lanterns: 동네 전체 등불 갯수(이웃들 누적)
     dongs: [
-      { name: "연남동", brightness: 66 },
-      { name: "망원동", brightness: 74 },
-      { name: "서교동", brightness: 61 },
-      { name: "성산동", brightness: 52 },
-      { name: "합정동", brightness: 45 },
-      { name: "공덕동", brightness: 57 },
-      { name: "대흥동", brightness: 49 },
-      { name: "염리동", brightness: 41 },
-      { name: "도화동", brightness: 33 },
-      { name: "상암동", brightness: 38 },
+      { name: "연남동", brightness: 66, lanterns: 342 },
+      { name: "망원동", brightness: 74, lanterns: 511 },
+      { name: "서교동", brightness: 61, lanterns: 287 },
+      { name: "성산동", brightness: 52, lanterns: 196 },
+      { name: "합정동", brightness: 45, lanterns: 154 },
+      { name: "공덕동", brightness: 57, lanterns: 233 },
+      { name: "대흥동", brightness: 49, lanterns: 178 },
+      { name: "염리동", brightness: 41, lanterns: 121 },
+      { name: "도화동", brightness: 33, lanterns: 88 },
+      { name: "상암동", brightness: 38, lanterns: 96 },
     ],
     categories: ["전체", "환경", "어르신", "아동", "동물", "재능기부", "기타"],
     // 이웃 등급 (heart_points 기준) — 낮은 순

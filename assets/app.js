@@ -87,11 +87,10 @@
   function myBrightnessShare() {
     return state.attended.size * 4; // 참여 완료 1건당 +4
   }
-  // 특정 동의 현재 밝기 = 기본 + (내 동이면 내 기여)
+  // 특정 동의 현재 밝기 = 기본 + 그 동네에서 켜진 등불(내 기여)만큼
   function dongBrightness(name) {
     const base = dongInfo(name).brightness;
-    const mine = name === currentDong() ? myBrightnessShare() : 0;
-    return Math.min(100, base + mine);
+    return Math.min(100, base + myLanternsInDong(name) * 3);
   }
   function currentBrightness() {
     return dongBrightness(currentDong());
@@ -202,6 +201,14 @@
   function shortRegion(r) {
     const parts = String(r).split(" ");
     return parts[parts.length - 1];
+  }
+  // 사용자 이름 (추후 가입 기능에서 확장)
+  function myName() {
+    return (state.profile && state.profile.name) || ME.name;
+  }
+  // 지역 문자열 → 동네(마지막 토큰). 예: "서울 마포구 연남동" → "연남동"
+  function dongOfRegion(r) {
+    return shortRegion(r);
   }
   function toast(msg) {
     els.toast.innerHTML = msg;
@@ -336,12 +343,11 @@
             .map((d) => {
               const v = d.brightness;
               const col = dawnColor(v);
-              const st = brightnessStage(v);
               const on = state.selectedDong === d.name ? " is-on" : "";
               return `<button class="ob-dong${on}" data-dong="${d.name}">
                         <span class="ob-dong__swatch" style="background:${col}"></span>
                         <span class="ob-dong__name">${d.name}</span>
-                        <span class="ob-dong__b">${st.emoji} ${v}</span>
+                        <span class="ob-dong__b">🏮 ${d.lanterns}</span>
                       </button>`;
             })
             .join("")}
@@ -409,16 +415,18 @@
     if (state.view === "create") return renderCreate();
     if (state.view === "compose") return renderCompose();
 
-    if (state.tab === "home") return renderHome();
+    if (state.tab === "home") return renderDashboard();
+    if (state.tab === "find") return renderFind();
     if (state.tab === "sarangbang") return renderSarangbang();
     if (state.tab === "certs") return renderCerts();
     if (state.tab === "me") return renderMe();
   }
   function updateHeader() {
     const v = currentBrightness();
-    els.headerRegion.innerHTML = `<span class="hdr-dot" style="background:${dawnColor(
-      v
-    )}"></span>${escapeHtml(currentDong())}`;
+    const total = dongLanternTotal(currentDong());
+    els.headerRegion.innerHTML =
+      `<span class="hdr-dot" style="background:${dawnColor(v)}"></span>` +
+      `${escapeHtml(currentDong())} <b>🏮${total}</b>`;
   }
   function updateBadges() {
     const n = [...state.applied].filter(findActivity).length;
@@ -434,8 +442,27 @@
     }
   }
   function updateFab() {
-    const show = state.view === "list" && state.tab === "home";
+    const show = state.view === "list" && (state.tab === "home" || state.tab === "find");
     els.fab.style.display = show ? "flex" : "none";
+  }
+  // ---------- 등불(내 선행) 집계 : 확인증 1개 = 등불 1개 ----------
+  function lanternsTotal() {
+    return state.certificates.length;
+  }
+  function lanternsByDong() {
+    const m = {};
+    state.certificates.forEach((c) => {
+      const d = dongOfRegion(c.region);
+      m[d] = (m[d] || 0) + 1;
+    });
+    return m;
+  }
+  function myLanternsInDong(dong) {
+    return state.certificates.filter((c) => dongOfRegion(c.region) === dong).length;
+  }
+  // 동네 전체 등불 = 이웃들 누적(시드) + 내 기여
+  function dongLanternTotal(dong) {
+    return dongInfo(dong).lanterns + myLanternsInDong(dong);
   }
 
   // ---------- 찾기(홈) ----------
@@ -443,7 +470,7 @@
     const dong = currentDong();
     const v = currentBrightness();
     const st = brightnessStage(v);
-    const share = myBrightnessShare();
+    const myLant = myLanternsInDong(dong);
     const top = dawnColor(Math.max(0, v - 34));
     const horizon = dawnColor(v);
     const sunGlow = Math.min(1, v / 55).toFixed(2);
@@ -452,12 +479,12 @@
         <div class="bright__sun" style="opacity:${sunGlow}"></div>
         <div class="bright__head">
           <div class="bright__stage">${st.emoji} ${st.name}</div>
-          <div class="bright__val">${v}<span>반디</span></div>
+          <div class="bright__val">${v}<span>밝기</span></div>
         </div>
         <div class="bright__bar"><i style="width:${v}%"></i></div>
         <div class="bright__foot">
           <b>${escapeHtml(dong)}</b>을(를) 이웃들과 함께 밝히고 있어요
-          ${share > 0 ? `· 내가 밝힌 반디 <b>+${share}</b>` : "· 첫 봉사로 우리 마을을 밝혀보세요"}
+          ${myLant > 0 ? `· 내가 켠 등불 <b>🏮 ${myLant}개</b>` : "· 첫 봉사로 우리 마을에 등불을 켜보세요"}
         </div>
       </div>`;
   }
@@ -490,7 +517,57 @@
       </article>`;
   }
 
-  function renderHome() {
+  // ---------- 홈 대시보드 ----------
+  function renderDashboard() {
+    const lv = levelInfo();
+    const dong = currentDong();
+    const myLant = lanternsTotal();
+    const recs = getActivities()
+      .filter((a) => !state.attended.has(a.id) && !isClosed(a))
+      .sort((a, b) => daysLeft(a.deadline) - daysLeft(b.deadline))
+      .slice(0, 3);
+    const h = new Date().getHours();
+    const greet = h < 6 ? "고요한 밤이에요" : h < 11 ? "좋은 아침이에요" : h < 18 ? "좋은 오후예요" : "포근한 저녁이에요";
+    els.view.innerHTML = `
+      <div class="dash-greet">${greet}, <b>${escapeHtml(myName())}</b> ✨<br/>
+        <span>오늘도 우리 ${escapeHtml(dong)}에 등불을 켜볼까요?</span></div>
+      ${brightnessWidget()}
+      <div class="dash-stats">
+        <div class="dash-stat"><div class="dash-stat__num">🏮 ${myLant}</div><div class="dash-stat__lbl">내가 켠 등불</div></div>
+        <div class="dash-stat"><div class="dash-stat__num">${lv.cur.emoji}</div><div class="dash-stat__lbl">${lv.cur.name}</div></div>
+        <div class="dash-stat"><div class="dash-stat__num">${state.certificates.length}</div><div class="dash-stat__lbl">마음확인증</div></div>
+      </div>
+      <div class="dash-actions">
+        <button class="dash-act" data-go="find"><span class="dash-act__ic">🔍</span>봉사 찾기</button>
+        <button class="dash-act" data-go="create"><span class="dash-act__ic">➕</span>봉사 올리기</button>
+        <button class="dash-act" data-go="sarangbang"><span class="dash-act__ic">💬</span>사랑방</button>
+      </div>
+      <div class="dash-sec">
+        <span>🔥 지금 마감 임박</span>
+        <button class="dash-more" data-go="find">전체 보기 →</button>
+      </div>
+      ${
+        recs.length
+          ? recs.map(cardHtml).join("")
+          : `<div class="empty" style="padding:30px 20px"><div class="empty__icon">🌙</div><div class="empty__title">지금은 임박한 봉사가 없어요</div><div>찾기에서 천천히 둘러보세요.</div></div>`
+      }
+    `;
+    els.view.querySelectorAll("[data-go]").forEach((b) =>
+      b.addEventListener("click", () => {
+        const g = b.dataset.go;
+        if (g === "create") return openCreate();
+        state.tab = g;
+        state.view = "list";
+        syncTabbar();
+        render();
+      })
+    );
+    bindCards();
+    els.view.scrollTop = 0;
+  }
+
+  // ---------- 찾기 ----------
+  function renderFind() {
     const data = getActivities();
     const kw = state.keyword.trim().toLowerCase();
     let list = data.filter((item) => {
@@ -518,7 +595,7 @@
          </div>`;
 
     els.view.innerHTML = `
-      ${brightnessWidget()}
+      <div class="section-head">🔍 우리 동네 봉사 찾기</div>
       <div class="searchbar">
         <span class="s-icon">🔍</span>
         <input id="search-input" type="search" placeholder="제목, 기관, 지역 검색"
@@ -532,9 +609,9 @@
     const input = document.getElementById("search-input");
     input.addEventListener("input", (e) => {
       state.keyword = e.target.value;
-      clearTimeout(renderHome._t);
-      renderHome._t = setTimeout(() => {
-        renderHome();
+      clearTimeout(renderFind._t);
+      renderFind._t = setTimeout(() => {
+        renderFind();
         const i = document.getElementById("search-input");
         if (i) {
           i.focus();
@@ -618,20 +695,35 @@
     const certs = [...state.certificates].sort(
       (a, b) => new Date(b.issuedAt) - new Date(a.issuedAt)
     );
-    const head = `
-      <div class="section-head">🕯️ 마음확인증함</div>
-      <div class="notice">${DISCLAIMER}</div>`;
+    const head = `<div class="section-head">🏮 내 등불함</div>`;
 
     if (!certs.length) {
       els.view.innerHTML =
         head +
+        `<div class="notice">${DISCLAIMER}</div>` +
         `<div class="empty">
-          <div class="empty__icon">🕯️</div>
-          <div class="empty__title">아직 마음확인증이 없어요</div>
-          <div>봉사에 참여하고 ‘참여 완료 처리’를 하면<br/>따뜻한 확인증이 발급돼요.</div>
+          <div class="empty__icon">🏮</div>
+          <div class="empty__title">아직 켠 등불이 없어요</div>
+          <div>봉사에 참여하고 주최자가 출석을 확인하면<br/>등불이 켜지고 마음확인증이 발급돼요.</div>
         </div>`;
       return;
     }
+
+    const total = lanternsTotal();
+    const entries = Object.entries(lanternsByDong()).sort((a, b) => b[1] - a[1]);
+    const maxN = entries[0][1];
+    const dongRows = entries
+      .map(([d, n]) => {
+        const v = dongBrightness(d);
+        const pct = Math.max(8, Math.round((n / maxN) * 100));
+        return `<div class="lant-row">
+          <span class="lant-row__dot" style="background:${dawnColor(v)}"></span>
+          <span class="lant-row__name">${escapeHtml(d)}</span>
+          <span class="lant-row__bar"><i style="width:${pct}%; background:${dawnColor(Math.max(40, v))}"></i></span>
+          <span class="lant-row__n">🏮 ${n}</span>
+        </div>`;
+      })
+      .join("");
 
     const cards = certs
       .map(
@@ -643,7 +735,7 @@
           <div class="cert-card__meta">${escapeHtml(c.org)} · ${escapeHtml(c.region)}</div>
           <div class="cert-card__foot">
             <span>🗓️ ${fmtDate(c.date)}</span>
-            <span>💛 ${c.hours}시간 · ${c.points}p</span>
+            <span>🏮 등불 1 · ${c.hours}시간</span>
           </div>
         </article>`
       )
@@ -651,10 +743,16 @@
 
     els.view.innerHTML =
       head +
-      `<div class="summary">
-        <div class="summary__box"><div class="summary__num">${certs.length}</div><div class="summary__lbl">받은 확인증</div></div>
-        <div class="summary__box"><div class="summary__num accent">${totalCertHours()}<span style="font-size:14px">시간</span></div><div class="summary__lbl">함께한 시간</div></div>
-      </div>` +
+      `<div class="lant-hero">
+         <div class="lant-hero__big">🏮 <b>${total}</b></div>
+         <div class="lant-hero__lbl">지금까지 내가 켠 등불</div>
+       </div>
+       <div class="lant-dongs">
+         <div class="lant-dongs__title">동네별로 밝힌 등불</div>
+         ${dongRows}
+       </div>
+       <div class="section-head" style="font-size:16px; margin-top:22px">🕯️ 마음확인증</div>
+       <div class="notice">${DISCLAIMER}</div>` +
       cards;
 
     els.view.querySelectorAll(".cert-card").forEach((el) =>
@@ -1079,15 +1177,15 @@
       </div>
 
       <div class="stat3">
+        <div class="stat3__box"><div class="stat3__num">🏮 ${lanternsTotal()}</div><div class="stat3__lbl">내가 켠 등불</div></div>
         <div class="stat3__box"><div class="stat3__num">${state.certificates.length}</div><div class="stat3__lbl">마음확인증</div></div>
         <div class="stat3__box"><div class="stat3__num">${totalCertHours()}</div><div class="stat3__lbl">함께한 시간</div></div>
-        <div class="stat3__box"><div class="stat3__num">+${myBrightnessShare()}</div><div class="stat3__lbl">밝힌 몫</div></div>
       </div>
 
       <div class="mini-bright" style="background:linear-gradient(120deg, ${dawnColor(
         Math.max(0, v - 30)
       )}, ${dawnColor(v)})">
-        <span>💡 지금 <b>${escapeHtml(currentDong())}</b> 반디 <b>${v}</b>마리 · ${st.emoji} ${st.name}</span>
+        <span>💡 우리 <b>${escapeHtml(currentDong())}</b> 전체 등불 <b>🏮 ${dongLanternTotal(currentDong())}</b> · ${st.emoji} ${st.name}</span>
         <button class="mini-bright__btn" id="btn-changedong">동네 바꾸기</button>
       </div>
 
