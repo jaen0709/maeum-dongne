@@ -217,27 +217,27 @@
   const OB_SLIDES = [
     {
       emoji: "🌑",
-      title: "지금, 우리 동네는<br/>깜깜해요",
+      title: "지금, 우리 마을은<br/>깜깜해요",
       desc:
         "마음동네는 깊은 <b>밤</b>에서 시작해요.<br/>" +
         "이웃의 작은 봉사와 기부가 하나둘 모이면,<br/>" +
-        "<b>동(洞)이 트듯</b> 동네가 서서히 밝아집니다.",
+        "<b>동이 트듯</b> 우리 마을이 서서히 밝아집니다.",
     },
     {
       emoji: "🌆",
-      title: "동마다<br/>색이 달라요",
+      title: "마을마다<br/>색이 달라요",
       desc:
         "봉사와 기부가 쌓일수록<br/>" +
         "검정 → 보라 → 노을 → <b>황금빛</b>으로 물들어요.<br/>" +
-        "어떤 동은 아직 깜깜하고, 어떤 동은 벌써 아침이에요.",
+        "어떤 마을은 아직 깜깜하고, 어떤 마을은 벌써 아침이에요.",
     },
     {
       emoji: "☀️",
-      title: "우리 동네를 밝히는 건,<br/>바로 당신이에요",
+      title: "우리 마을을 밝히는 건,<br/>바로 당신이에요",
       desc:
         "오늘 당신의 작은 한 걸음이<br/>" +
-        "우리 동을, 그리고 세상을 밝힙니다.<br/>" +
-        "<b>오늘도, 당신이 동네의 해가 되어 주세요.</b>",
+        "우리 마을을, 그리고 세상을 밝힙니다.<br/>" +
+        "<b>오늘도, 당신이 마을의 해가 되어 주세요.</b>",
     },
   ];
 
@@ -327,8 +327,8 @@
         <p class="ob-desc">${s.desc}</p>`;
     } else {
       content.innerHTML = `
-        <h2 class="ob-title">우리 동,<br/>어디예요?</h2>
-        <p class="ob-desc">당신이 밝힐 동네를 골라주세요.<br/>지금 각 동의 색이 곧 <b>그 동네의 밝기</b>예요.</p>
+        <h2 class="ob-title">우리 마을,<br/>어디예요?</h2>
+        <p class="ob-desc">당신이 밝힐 마을을 골라주세요.<br/>지금 각 마을의 색이 곧 <b>그 동네의 밝기</b>예요.</p>
         <div class="ob-dong-grid">
           ${CFG.dongs
             .map((d) => {
@@ -436,12 +436,12 @@
         <div class="bright__sun" style="opacity:${sunGlow}"></div>
         <div class="bright__head">
           <div class="bright__stage">${st.emoji} ${st.name}</div>
-          <div class="bright__val">${v}<span>/100</span></div>
+          <div class="bright__val">${v}<span>등불</span></div>
         </div>
         <div class="bright__bar"><i style="width:${v}%"></i></div>
         <div class="bright__foot">
           <b>${escapeHtml(dong)}</b>을(를) 이웃들과 함께 밝히고 있어요
-          ${share > 0 ? `· 내가 밝힌 몫 <b>+${share}</b>` : "· 첫 봉사로 우리 동을 밝혀보세요"}
+          ${share > 0 ? `· 내가 켠 등불 <b>+${share}</b>` : "· 첫 봉사로 우리 마을을 밝혀보세요"}
         </div>
       </div>`;
   }
@@ -1071,7 +1071,7 @@
       <div class="mini-bright" style="background:linear-gradient(120deg, ${dawnColor(
         Math.max(0, v - 30)
       )}, ${dawnColor(v)})">
-        <span>💡 지금 <b>${escapeHtml(currentDong())}</b> 밝기 <b>${v}</b> · ${st.emoji} ${st.name}</span>
+        <span>💡 지금 <b>${escapeHtml(currentDong())}</b> 밝기 <b>${v}</b> 등불 · ${st.emoji} ${st.name}</span>
         <button class="mini-bright__btn" id="btn-changedong">동네 바꾸기</button>
       </div>
 
@@ -1121,7 +1121,7 @@
     };
     state.certificates.push(cert);
     saveStore();
-    toast(`참여 완료! 우리 동이 조금 더 밝아졌어요 ${brightnessStage(currentBrightness()).emoji}`);
+    toast(`참여 완료! 우리 마을이 조금 더 밝아졌어요 ${brightnessStage(currentBrightness()).emoji}`);
     render();
   }
 
