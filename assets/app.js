@@ -219,8 +219,8 @@
       emoji: "🌑",
       title: "지금, 우리 마을은<br/>깜깜해요",
       desc:
-        "마음동네는 깊은 <b>밤</b>에서 시작해요.<br/>" +
-        "이웃의 작은 봉사와 기부가 하나둘 모이면,<br/>" +
+        "<b>반디</b>는 깊은 <b>밤</b>에서 시작해요.<br/>" +
+        "이웃의 작은 봉사와 기부가 반디처럼 모이면,<br/>" +
         "<b>동이 트듯</b> 우리 마을이 서서히 밝아집니다.",
     },
     {
@@ -247,6 +247,7 @@
     ob = document.createElement("div");
     ob.id = "onboarding";
     ob.innerHTML = `
+      <button class="ob-close" id="ob-close" aria-label="건너뛰기">✕</button>
       <div class="ob-sky" id="ob-sky">
         <div class="ob-stars" id="ob-stars"></div>
         <div class="ob-sun" id="ob-sun"></div>
@@ -278,6 +279,7 @@
 
     ob.querySelector("#ob-next").addEventListener("click", obNext);
     ob.querySelector("#ob-back").addEventListener("click", obBack);
+    ob.querySelector("#ob-close").addEventListener("click", closeOnboarding);
 
     obStep = startStep || 0;
     updateOnboarding();
@@ -364,6 +366,20 @@
       next.textContent = obStep === 2 ? "동네 고르러 가기 →" : "다음";
     }
   }
+  function closeOnboarding() {
+    // ✕ 건너뛰기 — 동네 미선택 시 기본값(연남동)으로 시작
+    if (!state.selectedDong) state.selectedDong = "연남동";
+    saveStore();
+    const ob = document.getElementById("onboarding");
+    if (ob) {
+      ob.classList.add("is-leaving");
+      setTimeout(() => ob.remove(), 420);
+    }
+    state.tab = "home";
+    state.view = "list";
+    syncTabbar();
+    render();
+  }
   function selectDong(name) {
     state.selectedDong = name;
     saveStore();
@@ -436,12 +452,12 @@
         <div class="bright__sun" style="opacity:${sunGlow}"></div>
         <div class="bright__head">
           <div class="bright__stage">${st.emoji} ${st.name}</div>
-          <div class="bright__val">${v}<span>등불</span></div>
+          <div class="bright__val">${v}<span>반디</span></div>
         </div>
         <div class="bright__bar"><i style="width:${v}%"></i></div>
         <div class="bright__foot">
           <b>${escapeHtml(dong)}</b>을(를) 이웃들과 함께 밝히고 있어요
-          ${share > 0 ? `· 내가 켠 등불 <b>+${share}</b>` : "· 첫 봉사로 우리 마을을 밝혀보세요"}
+          ${share > 0 ? `· 내가 밝힌 반디 <b>+${share}</b>` : "· 첫 봉사로 우리 마을을 밝혀보세요"}
         </div>
       </div>`;
   }
@@ -654,7 +670,7 @@
       <button class="detail__back" id="btn-back">← 확인증함으로</button>
       <div class="certificate">
         <div class="certificate__seal">🕯️</div>
-        <div class="certificate__brand">마음동네</div>
+        <div class="certificate__brand">반디</div>
         <div class="certificate__label">마음확인증</div>
         <div class="certificate__no">${escapeHtml(c.certId)}</div>
         <h2 class="certificate__title">${escapeHtml(c.title)}</h2>
@@ -670,7 +686,7 @@
           <div><span>마음포인트</span><b>${c.points}p</b></div>
           <div><span>발급일</span><b>${fmtDate(c.issuedAt.slice(0, 10))}</b></div>
         </div>
-        <div class="certificate__sign">💛 마음동네 이웃들 드림</div>
+        <div class="certificate__sign">✨ 반디 이웃들 드림</div>
       </div>
       <div class="notice notice--sm">${DISCLAIMER}</div>
     `;
@@ -1071,7 +1087,7 @@
       <div class="mini-bright" style="background:linear-gradient(120deg, ${dawnColor(
         Math.max(0, v - 30)
       )}, ${dawnColor(v)})">
-        <span>💡 지금 <b>${escapeHtml(currentDong())}</b> 밝기 <b>${v}</b> 등불 · ${st.emoji} ${st.name}</span>
+        <span>💡 지금 <b>${escapeHtml(currentDong())}</b> 반디 <b>${v}</b>마리 · ${st.emoji} ${st.name}</span>
         <button class="mini-bright__btn" id="btn-changedong">동네 바꾸기</button>
       </div>
 
