@@ -1,0 +1,17 @@
+{
+  "name": "마음동네 · 동네 봉사 매칭",
+  "short_name": "마음동네",
+  "description": "우리 동네에서 '이거 같이 해볼래요?'로 시작하는 따뜻한 봉사 매칭. 참여를 기록하는 마음확인증까지.",
+  "lang": "ko",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fbf7f3",
+  "theme_color": "#ef6c1a",
+  "icons": [
+    { "src": "assets/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
