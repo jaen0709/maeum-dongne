@@ -972,3 +972,57 @@ html, body {
 .lant-row__bar { flex: 1; height: 8px; background: var(--line); border-radius: 999px; overflow: hidden; }
 .lant-row__bar > i { display: block; height: 100%; border-radius: 999px; }
 .lant-row__n { font-size: 13px; font-weight: 700; color: var(--text); width: 54px; text-align: right; flex: 0 0 auto; }
+
+/* ===== 온보딩 가입 입력 ===== */
+.ob-input {
+  width: 100%;
+  border: none;
+  border-radius: 14px;
+  padding: 16px 18px;
+  font-size: 18px;
+  text-align: center;
+  font-family: inherit;
+  background: rgba(255, 255, 255, 0.94);
+  color: #241a12;
+  outline: none;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+/* ===== 가입 배너(나 탭) ===== */
+.signup-banner {
+  width: 100%;
+  border: 1px dashed var(--orange);
+  background: var(--orange-light);
+  color: var(--orange-dark);
+  border-radius: 14px;
+  padding: 13px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+.signup-banner b { font-weight: 800; }
+
+/* ===== 관리자 출석 화면 ===== */
+.mgr-act { background: var(--card); border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow); margin-bottom: 14px; }
+.mgr-act__title { font-size: 17px; font-weight: 800; margin-bottom: 6px; line-height: 1.35; }
+.mgr-act__meta { font-size: 13px; color: var(--text-sub); line-height: 1.7; }
+.mgr-list { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 20px; }
+.mgr-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  cursor: pointer;
+  text-align: left;
+}
+.mgr-row.is-on { border-color: var(--orange); background: var(--orange-light); }
+.mgr-row[disabled] { cursor: default; }
+.mgr-row__avatar { font-size: 22px; }
+.mgr-row__name { flex: 1; font-size: 15px; font-weight: 600; color: var(--text); }
+.mgr-row__state { font-size: 13px; font-weight: 700; color: var(--text-sub); }
+.mgr-row.is-on .mgr-row__state { color: var(--orange-dark); }

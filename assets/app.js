@@ -26,17 +26,23 @@
     category: "전체",
     sbFilter: "전체",
     selectedDong: persisted.selectedDong || null, // 내가 밝히는 동
+    profile: persisted.profile || { name: null, signedUp: false }, // 가입 정보
     applied: new Set(persisted.applied || []),
     attended: new Set(persisted.attended || []),
     certificates: persisted.certificates || [],
     joinedSeed: new Set(persisted.joinedSeed || []),
     userPosts: persisted.userPosts || [],
     myActivities: persisted.myActivities || [],
+    managed: persisted.managed || {}, // 주최자 출석 관리: {actId:{applicants:[],done}}
+    communityLanterns: persisted.communityLanterns || {}, // 동네별 이웃(NPC) 등불
   };
 
   let createForm = null;
   let composeForm = null;
   let obStep = 0;
+  let obGeo = null; // {lat,lng}
+  let obGeoState = "none"; // none | ok | denied
+  let obGeoReq = false;
 
   const els = {
     view: document.getElementById("view"),
@@ -63,12 +69,15 @@
         STORE_KEY,
         JSON.stringify({
           selectedDong: state.selectedDong,
+          profile: state.profile,
           applied: [...state.applied],
           attended: [...state.attended],
           certificates: state.certificates,
           joinedSeed: [...state.joinedSeed],
           userPosts: state.userPosts,
           myActivities: state.myActivities,
+          managed: state.managed,
+          communityLanterns: state.communityLanterns,
         })
       );
     } catch (e) {}
@@ -87,10 +96,10 @@
   function myBrightnessShare() {
     return state.attended.size * 4; // 참여 완료 1건당 +4
   }
-  // 특정 동의 현재 밝기 = 기본 + 그 동네에서 켜진 등불(내 기여)만큼
+  // 특정 동의 현재 밝기 = 기본 + 그 동네에서 새로 켜진 등불만큼
   function dongBrightness(name) {
     const base = dongInfo(name).brightness;
-    return Math.min(100, base + myLanternsInDong(name) * 3);
+    return Math.min(100, base + addedLanternsInDong(name) * 3);
   }
   function currentBrightness() {
     return dongBrightness(currentDong());
@@ -220,7 +229,16 @@
   // ==========================================================
   //  온보딩 (밤 → 동트임)
   // ==========================================================
-  const OB_SCENES = [6, 46, 84, 72]; // 스텝별 하늘 밝기
+  const OB_SCENES = [6, 46, 84, 72, 92]; // 스텝별 하늘 밝기 (0~2 슬라이드, 3 동선택, 4 가입)
+  function haversineKm(la1, lo1, la2, lo2) {
+    const R = 6371,
+      toR = (x) => (x * Math.PI) / 180;
+    const dLa = toR(la2 - la1),
+      dLo = toR(lo2 - lo1);
+    const a =
+      Math.sin(dLa / 2) ** 2 + Math.cos(toR(la1)) * Math.cos(toR(la2)) * Math.sin(dLo / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
   const OB_SLIDES = [
     {
       emoji: "🌑",
@@ -284,15 +302,19 @@
     }
     stars.innerHTML = dots;
 
-    ob.querySelector("#ob-next").addEventListener("click", obNext);
+    ob.querySelector("#ob-next").addEventListener("click", obNextClick);
     ob.querySelector("#ob-back").addEventListener("click", obBack);
     ob.querySelector("#ob-close").addEventListener("click", closeOnboarding);
 
+    obGeoReq = false;
+    obGeoState = "none";
+    obGeo = null;
     obStep = startStep || 0;
     updateOnboarding();
   }
-  function obNext() {
-    if (obStep < 3) {
+  function obNextClick() {
+    if (obStep === 4) return finishOnboarding();
+    if (obStep < 4) {
       obStep++;
       updateOnboarding();
     }
@@ -334,20 +356,35 @@
         <div class="ob-emoji">${s.emoji}</div>
         <h2 class="ob-title">${s.title}</h2>
         <p class="ob-desc">${s.desc}</p>`;
-    } else {
+    } else if (obStep === 3) {
+      requestGeo();
+      let dongs = CFG.dongs.slice();
+      let sub;
+      if (obGeoState === "ok" && obGeo) {
+        dongs.forEach((d) => (d._dist = haversineKm(obGeo.lat, obGeo.lng, d.lat, d.lng)));
+        dongs.sort((a, b) => a._dist - b._dist);
+        sub = "📍 지금 내 위치에서 <b>가까운 순</b>이에요.";
+      } else if (obGeoState === "denied") {
+        sub = "위치 권한이 없어 <b>마포구</b> 기준으로 보여드려요.";
+      } else {
+        sub = "📡 내 위치를 확인하는 중… 가까운 동네를 찾고 있어요.";
+      }
       content.innerHTML = `
         <h2 class="ob-title">우리 마을,<br/>어디예요?</h2>
-        <p class="ob-desc">당신이 밝힐 마을을 골라주세요.<br/>지금 각 마을의 색이 곧 <b>그 동네의 밝기</b>예요.</p>
+        <p class="ob-desc">${sub}</p>
         <div class="ob-dong-grid">
-          ${CFG.dongs
+          ${dongs
             .map((d) => {
-              const v = d.brightness;
-              const col = dawnColor(v);
+              const col = dawnColor(d.brightness);
               const on = state.selectedDong === d.name ? " is-on" : "";
+              const bline =
+                obGeoState === "ok" && d._dist != null
+                  ? `📍 ${d._dist < 1 ? Math.round(d._dist * 1000) + "m" : d._dist.toFixed(1) + "km"}`
+                  : `🏮 ${d.lanterns}`;
               return `<button class="ob-dong${on}" data-dong="${d.name}">
                         <span class="ob-dong__swatch" style="background:${col}"></span>
                         <span class="ob-dong__name">${d.name}</span>
-                        <span class="ob-dong__b">🏮 ${d.lanterns}</span>
+                        <span class="ob-dong__b">${bline}</span>
                       </button>`;
             })
             .join("")}
@@ -355,11 +392,22 @@
       content.querySelectorAll(".ob-dong").forEach((b) =>
         b.addEventListener("click", () => selectDong(b.dataset.dong))
       );
+    } else {
+      // step 4 — 가입(닉네임)
+      const cur = (state.profile && state.profile.name) || "";
+      content.innerHTML = `
+        <div class="ob-emoji">☀️</div>
+        <h2 class="ob-title">반디에서<br/>어떻게 불러드릴까요?</h2>
+        <p class="ob-desc">닉네임을 정해주세요.<br/>(비워두면 '이웃'으로 시작해요)</p>
+        <input class="ob-input" id="ob-name" type="text" maxlength="16"
+               placeholder="예: 연남동 햇살" value="${escapeHtml(cur)}" />
+        <p class="ob-desc" style="font-size:13px;opacity:.85;margin-top:14px">
+          ${escapeHtml(state.selectedDong || "연남동")}의 반디로 활동하게 돼요 ✨</p>`;
     }
 
     // 푸터
     const dotsEl = document.getElementById("ob-dots");
-    dotsEl.innerHTML = [0, 1, 2, 3]
+    dotsEl.innerHTML = [0, 1, 2, 3, 4]
       .map((i) => `<span class="ob-dot ${i === obStep ? "is-on" : ""}"></span>`)
       .join("");
     const back = document.getElementById("ob-back");
@@ -369,7 +417,7 @@
       next.style.display = "none";
     } else {
       next.style.display = "";
-      next.textContent = obStep === 2 ? "동네 고르러 가기 →" : "다음";
+      next.textContent = obStep === 2 ? "동네 고르러 가기 →" : obStep === 4 ? "반디 시작하기 ☀️" : "다음";
     }
   }
   function closeOnboarding() {
@@ -386,20 +434,48 @@
     syncTabbar();
     render();
   }
+  function requestGeo() {
+    if (obGeoReq) return;
+    obGeoReq = true;
+    if (!navigator.geolocation) {
+      obGeoState = "denied";
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        obGeo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        obGeoState = "ok";
+        if (obStep === 3) updateOnboarding();
+      },
+      () => {
+        obGeoState = "denied";
+        if (obStep === 3) updateOnboarding();
+      },
+      { timeout: 8000, maximumAge: 600000 }
+    );
+  }
   function selectDong(name) {
     state.selectedDong = name;
+    saveStore();
+    obStep = 4; // 동네 선택 → 가입 단계로
+    updateOnboarding();
+  }
+  function finishOnboarding() {
+    const el = document.getElementById("ob-name");
+    const nm = (el ? el.value : "").trim();
+    state.profile = { name: nm || null, signedUp: nm.length > 0 };
+    if (!state.selectedDong) state.selectedDong = "연남동";
     saveStore();
     const ob = document.getElementById("onboarding");
     if (ob) {
       ob.classList.add("is-leaving");
-      setTimeout(() => ob.remove(), 450);
+      setTimeout(() => ob.remove(), 420);
     }
     state.tab = "home";
     state.view = "list";
     syncTabbar();
     render();
-    const v = dongBrightness(name);
-    toast(`${name}의 해가 되어주셔서 고마워요 ${brightnessStage(v).emoji}`);
+    toast(`${myName()}님, 환영해요! ${currentDong()}를 함께 밝혀요 ✨`);
   }
 
   // ==========================================================
@@ -414,6 +490,7 @@
     if (state.view === "certDetail") return renderCertDetail();
     if (state.view === "create") return renderCreate();
     if (state.view === "compose") return renderCompose();
+    if (state.view === "manager") return renderManager();
 
     if (state.tab === "home") return renderDashboard();
     if (state.tab === "find") return renderFind();
@@ -460,9 +537,16 @@
   function myLanternsInDong(dong) {
     return state.certificates.filter((c) => dongOfRegion(c.region) === dong).length;
   }
-  // 동네 전체 등불 = 이웃들 누적(시드) + 내 기여
+  function communityLanternsInDong(dong) {
+    return state.communityLanterns[dong] || 0;
+  }
+  // 그 동네에 새로 켜진 등불 (나 + 이웃 출석확인분)
+  function addedLanternsInDong(dong) {
+    return myLanternsInDong(dong) + communityLanternsInDong(dong);
+  }
+  // 동네 전체 등불 = 이웃들 누적(시드) + 새로 켜진 등불
   function dongLanternTotal(dong) {
-    return dongInfo(dong).lanterns + myLanternsInDong(dong);
+    return dongInfo(dong).lanterns + addedLanternsInDong(dong);
   }
 
   // ---------- 찾기(홈) ----------
@@ -646,14 +730,17 @@
     const spotsLeft = Math.max(0, item.capacity - item.applied);
     const cert = state.certificates.find((c) => c.activityId === item.id);
 
+    const mine = item.id.indexOf("my") === 0; // 내가 올린(주최) 봉사
     let dock;
-    if (attended) {
+    if (mine) {
+      dock = `<button class="btn btn--primary" id="btn-manage">🛠️ 참여자 출석 관리</button>`;
+    } else if (attended) {
       dock = `<button class="btn btn--ghost" id="btn-viewcert">🕯️ 마음확인증 보기</button>`;
     } else if (applied) {
       dock = `
         <div class="dock-row">
           <button class="btn btn--danger" id="btn-cancel">신청 취소</button>
-          <button class="btn btn--primary" id="btn-attend">참여 완료 처리</button>
+          <button class="btn btn--primary" id="btn-manage">🔑 주최자 출석확인</button>
         </div>`;
     } else if (closed) {
       dock = `<button class="btn btn--disabled" disabled>모집 마감</button>`;
@@ -677,6 +764,8 @@
         <div class="detail__row"><span class="k">신청마감</span><span class="v">${fmtDate(item.deadline)}</span></div>
       </div>
       ${attended && cert ? `<div class="notice notice--done">🎉 참여를 마쳤어요! <b>${escapeHtml(cert.certId)}</b> 마음확인증이 발급됐어요.</div>` : ""}
+      ${applied && !mine && !attended ? `<div class="notice">🕒 봉사가 끝나면 <b>주최자가 출석을 확인</b>해요. 확인되면 등불이 켜지고 마음확인증이 발급돼요.</div>` : ""}
+      ${mine ? `<div class="notice">🛠️ 내가 올린 봉사예요. 봉사 종료 후 <b>참여자 출석을 확인</b>해 주세요.</div>` : ""}
       <h3 class="detail__sec-title">활동 안내</h3>
       <div class="detail__desc">${escapeHtml(item.desc)}</div>
       <div class="action-dock">${dock}</div>
@@ -685,7 +774,7 @@
     document.getElementById("btn-back").addEventListener("click", goList);
     on("btn-apply", () => doApply(item));
     on("btn-cancel", () => doCancel(item));
-    on("btn-attend", () => doAttend(item));
+    on("btn-manage", () => openManager(item.id));
     on("btn-viewcert", () => cert && openCert(cert.certId));
     els.view.scrollTop = 0;
   }
@@ -858,7 +947,7 @@
 
   function isJoined(p) {
     if (p._seed) return state.joinedSeed.has(p.id);
-    return (p.joinedBy || []).includes(ME.name);
+    return (p.joinedBy || []).includes(myName());
   }
   function joinCount(p) {
     if (p._seed) return (p.wantCount || 0) + (state.joinedSeed.has(p.id) ? 1 : 0);
@@ -878,9 +967,9 @@
       const up = state.userPosts.find((p) => p.id === id);
       if (!up) return;
       up.joinedBy = up.joinedBy || [];
-      const i = up.joinedBy.indexOf(ME.name);
+      const i = up.joinedBy.indexOf(myName());
       if (i >= 0) up.joinedBy.splice(i, 1);
-      else up.joinedBy.push(ME.name);
+      else up.joinedBy.push(myName());
     }
     saveStore();
     renderSarangbang();
@@ -954,11 +1043,11 @@
       type: f.type,
       title: f.type === "proposal" ? f.title : "",
       body: f.body,
-      author: ME.name,
+      author: myName(),
       region: myRegion(),
       createdAt: new Date().toISOString(),
       wantCount: 0,
-      joinedBy: f.type === "proposal" ? [ME.name] : [],
+      joinedBy: f.type === "proposal" ? [myName()] : [],
     };
     state.userPosts.push(post);
     saveStore();
@@ -1119,7 +1208,7 @@
       id: "my" + Date.now(),
       category: f.category,
       title,
-      org: ME.name + "의 동네제안",
+      org: myName() + "의 동네제안",
       region: f.region.trim() || myRegion(),
       date,
       time: slot.time,
@@ -1166,7 +1255,7 @@
     els.view.innerHTML = `
       <div class="profile">
         <div class="profile__avatar">${lv.cur.emoji}</div>
-        <div class="profile__name">${escapeHtml(ME.name)}</div>
+        <div class="profile__name">${escapeHtml(myName())}</div>
         <div class="profile__region">📍 ${escapeHtml(myRegion())}</div>
         <div class="profile__level">${lv.cur.emoji} <b>${lv.cur.name}</b></div>
         <div class="profile__bar"><i style="width:${Math.round(lv.progress * 100)}%"></i></div>
@@ -1175,6 +1264,12 @@
           ${lv.next ? `· ${lv.next.name}까지 ${lv.toNext}p` : "· 최고 등급이에요!"}
         </div>
       </div>
+
+      ${
+        !state.profile.signedUp
+          ? `<button class="signup-banner" id="btn-signup">🌟 게스트로 둘러보는 중 — <b>가입하고 반디 시작하기 →</b></button>`
+          : ""
+      }
 
       <div class="stat3">
         <div class="stat3__box"><div class="stat3__num">🏮 ${lanternsTotal()}</div><div class="stat3__lbl">내가 켠 등불</div></div>
@@ -1215,15 +1310,14 @@
     toast("신청을 취소했어요.");
     render();
   }
-  function doAttend(item) {
-    if (state.certificates.some((c) => c.activityId === item.id)) return;
-    state.applied.delete(item.id);
-    state.attended.add(item.id);
+  // 마음확인증 발급 (멱등) — 내 참여가 확정될 때
+  function issueCert(item) {
+    if (state.certificates.some((c) => c.activityId === item.id)) return false;
     const seq = String(state.certificates.length + 1).padStart(4, "0");
-    const cert = {
+    state.certificates.push({
       certId: "MH-2026-" + seq,
       activityId: item.id,
-      participant: ME.name,
+      participant: myName(),
       title: item.title,
       org: item.org,
       region: item.region,
@@ -1232,11 +1326,119 @@
       hours: item.hours,
       points: item.points,
       issuedAt: new Date().toISOString(),
-    };
-    state.certificates.push(cert);
-    saveStore();
-    toast(`참여 완료! 우리 마을이 조금 더 밝아졌어요 ${brightnessStage(currentBrightness()).emoji}`);
+    });
+    return true;
+  }
+
+  // ---------- 관리자(주최자) 출석 확인 ----------
+  const APPLICANT_POOL = ["김이웃", "박봉사", "이하나", "최온기", "정새벽", "윤햇살", "오도움", "서나눔", "강마음", "한별"];
+  function hashId(id) {
+    let h = 0;
+    for (let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) >>> 0;
+    return h;
+  }
+  function buildApplicants(act) {
+    let seed = hashId(act.id);
+    const n = 2 + (seed % 3); // 2~4명
+    const pool = APPLICANT_POOL.slice();
+    const names = [];
+    for (let i = 0; i < n && pool.length; i++) {
+      seed = (seed * 9301 + 49297) % 233280;
+      names.push(pool.splice(seed % pool.length, 1)[0]);
+    }
+    return names.map((nm) => ({ name: nm, present: true }));
+  }
+  function getManaged(act) {
+    let m = state.managed[act.id];
+    if (!m) {
+      m = { applicants: buildApplicants(act), done: false };
+      state.managed[act.id] = m;
+    }
+    // 내가 신청한 봉사면 명단에 나를 포함
+    if (state.applied.has(act.id) && !m.applicants.some((a) => a.me)) {
+      m.applicants.unshift({ name: myName() + " (나)", present: true, me: true });
+    }
+    return m;
+  }
+  function openManager(id) {
+    state.view = "manager";
+    state.detailId = id;
     render();
+  }
+  function togglePresent(id, idx) {
+    const act = findActivity(id);
+    const m = getManaged(act);
+    if (m.done) return;
+    m.applicants[idx].present = !m.applicants[idx].present;
+    saveStore();
+    renderManager();
+  }
+  function managerConfirm(id) {
+    const act = findActivity(id);
+    const m = getManaged(act);
+    if (m.done) return;
+    const dong = dongOfRegion(act.region);
+    let cnt = 0;
+    m.applicants.forEach((a) => {
+      if (!a.present) return;
+      cnt++;
+      if (a.me) {
+        state.applied.delete(act.id);
+        state.attended.add(act.id);
+        issueCert(act); // 내 등불 + 마음확인증
+      } else {
+        state.communityLanterns[dong] = (state.communityLanterns[dong] || 0) + 1; // 이웃 등불
+      }
+    });
+    m.done = true;
+    saveStore();
+    toast(`${cnt}명 출석 확정! ${escapeHtml(dong)}에 등불 ${cnt}개가 켜졌어요 🏮`);
+    render();
+  }
+  function renderManager() {
+    const act = findActivity(state.detailId);
+    if (!act) return goList();
+    const m = getManaged(act);
+    const dong = dongOfRegion(act.region);
+    const presentCount = m.applicants.filter((a) => a.present).length;
+    const rows = m.applicants
+      .map(
+        (a, i) => `
+        <button class="mgr-row ${a.present ? "is-on" : ""}" data-i="${i}" ${m.done ? "disabled" : ""}>
+          <span class="mgr-row__avatar">${a.me ? "🙋" : "🧑"}</span>
+          <span class="mgr-row__name">${escapeHtml(a.name)}</span>
+          <span class="mgr-row__state">${a.present ? "✓ 출석" : "불참"}</span>
+        </button>`
+      )
+      .join("");
+    els.view.innerHTML = `
+      <button class="detail__back" id="btn-back">← 뒤로</button>
+      <div class="section-head">🛠️ 출석 관리</div>
+      <div class="mgr-act">
+        <div class="mgr-act__title">${escapeHtml(act.title)}</div>
+        <div class="mgr-act__meta">📍 ${escapeHtml(act.region)}<br/>🗓️ ${fmtDate(act.date)} · ${escapeHtml(act.time)}</div>
+      </div>
+      <div class="notice">봉사가 끝난 뒤 참여한 이웃을 <b>출석 확인</b>해 주세요. 확정하면 참여자에게 마음확인증이 발급되고 <b>${escapeHtml(dong)}에 등불</b>이 켜져요.${m.done ? "" : " (이름을 눌러 출석/불참 전환)"}</div>
+      <div class="mgr-list">${rows}</div>
+      <div class="action-dock">
+        ${
+          m.done
+            ? `<button class="btn btn--disabled" disabled>✅ 출석 확정 완료 (${presentCount}명)</button>`
+            : `<button class="btn btn--primary" id="btn-confirm">출석 확정하기 (${presentCount}명)</button>`
+        }
+      </div>
+    `;
+    document.getElementById("btn-back").addEventListener("click", () => {
+      state.view = "detail";
+      render();
+    });
+    if (!m.done) {
+      els.view.querySelectorAll(".mgr-row").forEach((r) =>
+        r.addEventListener("click", () => togglePresent(act.id, Number(r.dataset.i)))
+      );
+      on("btn-confirm", () => managerConfirm(act.id));
+    }
+    els.view.scrollTop = 0;
   }
 
   // ---------- 내비게이션 ----------
