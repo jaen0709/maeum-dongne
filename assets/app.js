@@ -35,6 +35,7 @@
     myActivities: persisted.myActivities || [],
     managed: persisted.managed || {}, // 주최자 출석 관리: {actId:{applicants:[],done}}
     communityLanterns: persisted.communityLanterns || {}, // 동네별 이웃(NPC) 등불
+    donatedByDong: persisted.donatedByDong || {}, // 내가 기부한 금액(동네별)
   };
 
   let createForm = null;
@@ -78,6 +79,7 @@
           myActivities: state.myActivities,
           managed: state.managed,
           communityLanterns: state.communityLanterns,
+          donatedByDong: state.donatedByDong,
         })
       );
     } catch (e) {}
@@ -313,7 +315,6 @@
     updateOnboarding();
   }
   function obNextClick() {
-    if (obStep === 4) return finishOnboarding();
     if (obStep < 4) {
       obStep++;
       updateOnboarding();
@@ -393,16 +394,20 @@
         b.addEventListener("click", () => selectDong(b.dataset.dong))
       );
     } else {
-      // step 4 — 가입(닉네임)
-      const cur = (state.profile && state.profile.name) || "";
+      // step 4 — 소셜 가입/로그인
       content.innerHTML = `
         <div class="ob-emoji">☀️</div>
-        <h2 class="ob-title">반디에서<br/>어떻게 불러드릴까요?</h2>
-        <p class="ob-desc">닉네임을 정해주세요.<br/>(비워두면 '이웃'으로 시작해요)</p>
-        <input class="ob-input" id="ob-name" type="text" maxlength="16"
-               placeholder="예: 연남동 햇살" value="${escapeHtml(cur)}" />
-        <p class="ob-desc" style="font-size:13px;opacity:.85;margin-top:14px">
-          ${escapeHtml(state.selectedDong || "연남동")}의 반디로 활동하게 돼요 ✨</p>`;
+        <h2 class="ob-title">반디,<br/>이렇게 시작해요</h2>
+        <p class="ob-desc"><b>${escapeHtml(state.selectedDong || "연남동")}</b>의 반디로 활동하게 돼요 ✨</p>
+        <div class="ob-social-wrap">
+          <button class="ob-social ob-social--kakao" data-p="kakao"><span class="ob-social__ic">💬</span> 카카오로 시작하기</button>
+          <button class="ob-social ob-social--google" data-p="google"><span class="ob-social__ic ob-social__g">G</span> Google로 시작하기</button>
+          <button class="ob-social ob-social--apple" data-p="apple"><span class="ob-social__ic">🍎</span> Apple로 시작하기</button>
+        </div>
+        <p class="ob-desc" style="font-size:12px;opacity:.8;margin-top:16px">데모예요 — 실제 소셜 로그인은 서버 연동 시 동작해요.</p>`;
+      content.querySelectorAll(".ob-social").forEach((b) =>
+        b.addEventListener("click", () => socialSignup(b.dataset.p))
+      );
     }
 
     // 푸터
@@ -413,11 +418,11 @@
     const back = document.getElementById("ob-back");
     const next = document.getElementById("ob-next");
     back.style.visibility = obStep === 0 ? "hidden" : "visible";
-    if (obStep === 3) {
-      next.style.display = "none";
+    if (obStep === 3 || obStep === 4) {
+      next.style.display = "none"; // 동네 선택/소셜 가입은 자체 버튼으로 진행
     } else {
       next.style.display = "";
-      next.textContent = obStep === 2 ? "동네 고르러 가기 →" : obStep === 4 ? "반디 시작하기 ☀️" : "다음";
+      next.textContent = obStep === 2 ? "동네 고르러 가기 →" : "다음";
     }
   }
   function closeOnboarding() {
@@ -457,15 +462,19 @@
   function selectDong(name) {
     state.selectedDong = name;
     saveStore();
-    obStep = 4; // 동네 선택 → 가입 단계로
+    // 이미 로그인한 사용자가 동네만 바꾸는 경우 → 바로 닫기 (재로그인 X)
+    if (state.profile && state.profile.signedUp) return finishOnboarding();
+    obStep = 4; // 처음이면 소셜 가입 단계로
     updateOnboarding();
   }
-  function finishOnboarding() {
-    const el = document.getElementById("ob-name");
-    const nm = (el ? el.value : "").trim();
-    state.profile = { name: nm || null, signedUp: nm.length > 0 };
+  function socialSignup(provider) {
     if (!state.selectedDong) state.selectedDong = "연남동";
+    // 데모: 소셜 로그인 성공 → 동네 기반 닉네임으로 가입 (로그인 유지, 로그아웃 없음)
+    state.profile = { name: currentDong() + " 반디", signedUp: true, provider: provider };
     saveStore();
+    finishOnboarding();
+  }
+  function finishOnboarding() {
     const ob = document.getElementById("onboarding");
     if (ob) {
       ob.classList.add("is-leaving");
@@ -491,6 +500,7 @@
     if (state.view === "create") return renderCreate();
     if (state.view === "compose") return renderCompose();
     if (state.view === "manager") return renderManager();
+    if (state.view === "donate") return renderDonate();
 
     if (state.tab === "home") return renderDashboard();
     if (state.tab === "find") return renderFind();
@@ -547,6 +557,27 @@
   // 동네 전체 등불 = 이웃들 누적(시드) + 새로 켜진 등불
   function dongLanternTotal(dong) {
     return dongInfo(dong).lanterns + addedLanternsInDong(dong);
+  }
+  // 동네 이웃 기금 = 시드 + 내 기부
+  function dongFund(dong) {
+    return dongInfo(dong).donations + (state.donatedByDong[dong] || 0);
+  }
+  function fmtWon(n) {
+    return "₩" + Number(n).toLocaleString("ko-KR");
+  }
+  // 봉사한 사람에게 건네는 따뜻한 칭찬 한마디
+  function affirmation() {
+    const n = lanternsTotal();
+    const dong = currentDong();
+    if (n === 0)
+      return "아직 첫 등불 전이에요. 작은 봉사 하나가 큰 빛이 됩니다.<br/>오늘, 당신의 첫 등불을 켜볼까요? 🌱";
+    if (n < 3)
+      return `벌써 등불 <b>${n}개</b>를 켰어요.<br/>당신 덕분에 ${escapeHtml(dong)}이(가) 조금씩 밝아지고 있어요 🕯️`;
+    if (n < 7)
+      return `등불 <b>${n}개</b>! 당신은 이미 ${escapeHtml(dong)}의 소중한 이웃이에요.<br/>참 고마운 사람이에요 💛`;
+    if (n < 15)
+      return `등불 <b>${n}개</b>를 켠 당신, 정말 멋져요.<br/>${escapeHtml(dong)}을(를) 환하게 밝히고 있어요 ✨`;
+    return `등불 <b>${n}개</b>… 당신은 ${escapeHtml(dong)}의 등대 같은 사람이에요.<br/>세상을 밝히는 대단한 이웃이에요 🗼`;
   }
 
   // ---------- 찾기(홈) ----------
@@ -626,6 +657,31 @@
         <button class="dash-act" data-go="create"><span class="dash-act__ic">➕</span>봉사 올리기</button>
         <button class="dash-act" data-go="sarangbang"><span class="dash-act__ic">💬</span>사랑방</button>
       </div>
+
+      <div class="fund">
+        <div class="fund__head">🤝 우리 <b>${escapeHtml(dong)}</b> 이웃 기금</div>
+        <div class="fund__amt">${fmtWon(dongFund(dong))}</div>
+        <div class="fund__sub">🏮 봉사 등불 ${dongLanternTotal(dong)} · 이웃들이 함께 모았어요</div>
+        <button class="btn btn--primary" id="btn-donate">우리 동네 기부하기</button>
+      </div>
+      <div class="fund-uses">
+        <div class="fund-uses__title">💡 모인 기금은 이렇게 써요</div>
+        <div class="fund-uses__desc">앱에 모인 이웃들이 <b>주기적으로 이 기금으로 동네 봉사</b>를 해요.</div>
+        ${CFG.fundUses
+          .map(
+            (u) => `
+          <div class="fund-use">
+            <span class="fund-use__ic">${u.emoji}</span>
+            <div class="fund-use__body">
+              <div class="fund-use__title">${escapeHtml(u.title)}</div>
+              <div class="fund-use__cycle">${escapeHtml(u.cycle)}</div>
+            </div>
+            <span class="fund-use__cost">${fmtWon(u.cost)}/회</span>
+          </div>`
+          )
+          .join("")}
+      </div>
+
       <div class="dash-sec">
         <span>🔥 지금 마감 임박</span>
         <button class="dash-more" data-go="find">전체 보기 →</button>
@@ -646,8 +702,69 @@
         render();
       })
     );
+    on("btn-donate", openDonate);
     bindCards();
     els.view.scrollTop = 0;
+  }
+
+  // ---------- 우리 동네 기부(이웃 기금) — 데모 ----------
+  let donateAmount = 5000;
+  function openDonate() {
+    donateAmount = (CFG.donationPresets && CFG.donationPresets[1]) || 5000;
+    state.view = "donate";
+    render();
+  }
+  function renderDonate() {
+    const dong = currentDong();
+    const presets = CFG.donationPresets || [1000, 5000, 10000, 30000];
+    els.view.innerHTML = `
+      <button class="detail__back" id="btn-back">← 뒤로</button>
+      <div class="section-head">🤝 우리 ${escapeHtml(dong)} 이웃 기금</div>
+      <div class="fund fund--lg">
+        <div class="fund__head">지금까지 모인 기금</div>
+        <div class="fund__amt">${fmtWon(dongFund(dong))}</div>
+        <div class="fund__sub">이 기금으로 이웃들이 동네 봉사를 이어가요</div>
+      </div>
+      <div class="field"><label>얼마를 보탤까요?</label>
+        <div class="pick" id="pick-amt">
+          ${presets
+            .map(
+              (a) => `<button class="pick__btn ${a === donateAmount ? "is-on" : ""}" data-v="${a}">${fmtWon(a)}</button>`
+            )
+            .join("")}
+        </div>
+      </div>
+      <p class="form-hint">💛 작은 금액도 이웃에게 큰 등불이 돼요.</p>
+      <div class="notice">※ <b>데모 화면</b>이에요. 실제 결제·이체는 이루어지지 않아요. (실서비스에선 안전한 결제·모금 절차가 필요해요)</div>
+      <div class="action-dock">
+        <button class="btn btn--primary" id="btn-give">${fmtWon(donateAmount)} 기부하기 (데모)</button>
+      </div>
+    `;
+    document.getElementById("btn-back").addEventListener("click", () => {
+      state.view = "list";
+      state.tab = "home";
+      syncTabbar();
+      render();
+    });
+    els.view.querySelectorAll("#pick-amt .pick__btn").forEach((b) =>
+      b.addEventListener("click", () => {
+        donateAmount = Number(b.dataset.v);
+        document.getElementById("btn-give").textContent = fmtWon(donateAmount) + " 기부하기 (데모)";
+        els.view.querySelectorAll("#pick-amt .pick__btn").forEach((x) => x.classList.toggle("is-on", x === b));
+      })
+    );
+    on("btn-give", doDonate);
+    els.view.scrollTop = 0;
+  }
+  function doDonate() {
+    const dong = currentDong();
+    state.donatedByDong[dong] = (state.donatedByDong[dong] || 0) + donateAmount;
+    saveStore();
+    state.view = "list";
+    state.tab = "home";
+    syncTabbar();
+    toast(`${fmtWon(donateAmount)} 기부 완료! ${escapeHtml(dong)}를 밝혀주셔서 고마워요 💛`);
+    render();
   }
 
   // ---------- 찾기 ----------
@@ -1265,6 +1382,8 @@
         </div>
       </div>
 
+      <div class="affirm">${affirmation()}</div>
+
       ${
         !state.profile.signedUp
           ? `<button class="signup-banner" id="btn-signup">🌟 게스트로 둘러보는 중 — <b>가입하고 반디 시작하기 →</b></button>`
@@ -1283,6 +1402,25 @@
         <span>💡 우리 <b>${escapeHtml(currentDong())}</b> 전체 등불 <b>🏮 ${dongLanternTotal(currentDong())}</b> · ${st.emoji} ${st.name}</span>
         <button class="mini-bright__btn" id="btn-changedong">동네 바꾸기</button>
       </div>
+
+      <div class="section-head" style="margin-top:20px">🏮 나의 봉사 발자취</div>
+      ${
+        state.certificates.length
+          ? [...state.certificates]
+              .sort((a, b) => new Date(b.issuedAt) - new Date(a.issuedAt))
+              .map(
+                (c) => `
+              <div class="trace">
+                <span class="trace__dot">🏮</span>
+                <div class="trace__body">
+                  <div class="trace__title">${escapeHtml(c.title)}</div>
+                  <div class="trace__meta">${fmtDate(c.date)} · ${escapeHtml(dongOfRegion(c.region))} · ${c.hours}시간</div>
+                </div>
+              </div>`
+              )
+              .join("")
+          : `<div class="mini-note">아직 발자취가 없어요. 첫 봉사를 시작해보세요 🌱</div>`
+      }
 
       <div class="section-head" style="margin-top:20px">📋 예정된 봉사 <span class="cnt">${upcoming.length}</span></div>
       ${upcoming.length ? `<div class="mini-note">예정 봉사시간 <b>${plannedHours}시간</b></div>` : ""}

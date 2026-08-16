@@ -901,6 +901,28 @@ html, body {
 }
 .ob-next:active { transform: scale(0.99); }
 
+/* 소셜 로그인 */
+.ob-social-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.ob-social {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  border-radius: 12px;
+  padding: 15px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ob-social:active { transform: scale(0.99); }
+.ob-social__ic { font-size: 18px; }
+.ob-social--kakao { background: #fee500; color: #3c1e1e; }
+.ob-social--google { background: #fff; color: #3c4043; border: 1px solid #dadce0; }
+.ob-social__g { font-weight: 900; color: #4285f4; font-size: 17px; }
+.ob-social--apple { background: #111; color: #fff; }
+
 /* ===== 홈 대시보드 ===== */
 .app-header__region b { font-weight: 800; margin-left: 2px; }
 
@@ -1026,3 +1048,52 @@ html, body {
 .mgr-row__name { flex: 1; font-size: 15px; font-weight: 600; color: var(--text); }
 .mgr-row__state { font-size: 13px; font-weight: 700; color: var(--text-sub); }
 .mgr-row.is-on .mgr-row__state { color: var(--orange-dark); }
+
+/* ===== 칭찬 카드 / 봉사 발자취 (나 탭) ===== */
+.affirm {
+  background: linear-gradient(135deg, #fff4ea, #ffe7d1);
+  border: 1px solid #f6d6b8;
+  border-radius: var(--radius);
+  padding: 16px 18px;
+  font-size: 14.5px;
+  line-height: 1.75;
+  color: #6b4a2a;
+  text-align: center;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow);
+}
+.affirm b { color: var(--orange-dark); font-weight: 800; }
+
+.trace { display: flex; gap: 12px; align-items: flex-start; padding: 2px 2px 0; }
+.trace__dot { font-size: 18px; line-height: 1.4; }
+.trace__body { flex: 1; border-bottom: 1px dashed var(--line); padding: 2px 0 12px; }
+.trace__title { font-size: 14.5px; font-weight: 700; }
+.trace__meta { font-size: 12.5px; color: var(--text-sub); margin-top: 3px; }
+
+/* ===== 이웃 기금(기부) ===== */
+.fund {
+  background: linear-gradient(135deg, #fff1e3, #ffe0c2);
+  border: 1px solid #f6d0a8;
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--shadow);
+  margin-bottom: 12px;
+  text-align: center;
+}
+.fund__head { font-size: 14px; font-weight: 700; color: var(--orange-dark); }
+.fund__head b { font-weight: 800; }
+.fund__amt { font-size: 30px; font-weight: 900; color: var(--accent); margin: 6px 0 4px; }
+.fund__sub { font-size: 12.5px; color: #8a6a45; margin-bottom: 14px; }
+.fund .btn { margin-top: 2px; }
+.fund--lg .fund__amt { font-size: 34px; }
+
+.fund-uses { background: var(--card); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 16px; }
+.fund-uses__title { font-size: 14px; font-weight: 800; margin-bottom: 4px; }
+.fund-uses__desc { font-size: 12.5px; color: var(--text-sub); line-height: 1.6; margin-bottom: 10px; }
+.fund-uses__desc b { color: var(--orange-dark); }
+.fund-use { display: flex; align-items: center; gap: 12px; padding: 9px 0; border-top: 1px solid var(--line); }
+.fund-use__ic { font-size: 22px; }
+.fund-use__body { flex: 1; }
+.fund-use__title { font-size: 14px; font-weight: 600; }
+.fund-use__cycle { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
+.fund-use__cost { font-size: 13px; font-weight: 700; color: var(--accent); white-space: nowrap; }
