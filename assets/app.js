@@ -61,6 +61,38 @@
     headerRegion: document.getElementById("header-region"),
   };
 
+  // Supabase Auth — 설정(supabase-config.js)이 채워지면 실제 소셜 로그인 동작, 아니면 데모
+  const SB =
+    window.supabase && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url
+      ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey)
+      : null;
+  function authEnabled() {
+    return !!SB;
+  }
+  async function checkAuthSession() {
+    if (!SB) return;
+    try {
+      const { data } = await SB.auth.getSession();
+      const user = data && data.session && data.session.user;
+      if (user) {
+        const meta = user.user_metadata || {};
+        const nm =
+          meta.name || meta.full_name || meta.nickname ||
+          (user.email ? user.email.split("@")[0] : currentDong() + " 반디");
+        state.profile = {
+          name: nm,
+          signedUp: true,
+          provider: (user.app_metadata && user.app_metadata.provider) || "social",
+        };
+        if (!state.selectedDong) state.selectedDong = "연남동";
+        saveStore();
+        const ob = document.getElementById("onboarding");
+        if (ob) ob.remove();
+        render();
+      }
+    } catch (e) {}
+  }
+
   // ---------- 저장소 ----------
   function loadStore() {
     try {
@@ -415,7 +447,7 @@
           <button class="ob-social ob-social--google" data-p="google"><span class="ob-social__ic ob-social__g">G</span> Google로 시작하기</button>
           <button class="ob-social ob-social--apple" data-p="apple"><span class="ob-social__ic">🍎</span> Apple로 시작하기</button>
         </div>
-        <p class="ob-desc" style="font-size:12px;opacity:.8;margin-top:16px">데모예요 — 실제 소셜 로그인은 서버 연동 시 동작해요.</p>`;
+        ${authEnabled() ? "" : `<p class="ob-desc" style="font-size:12px;opacity:.8;margin-top:16px">데모예요 — 실제 소셜 로그인은 Supabase 설정 후 동작해요.</p>`}`;
       content.querySelectorAll(".ob-social").forEach((b) =>
         b.addEventListener("click", () => socialSignup(b.dataset.p))
       );
@@ -480,7 +512,15 @@
   }
   function socialSignup(provider) {
     if (!state.selectedDong) state.selectedDong = "연남동";
-    // 데모: 소셜 로그인 성공 → 동네 기반 닉네임으로 가입 (로그인 유지, 로그아웃 없음)
+    saveStore(); // 리다이렉트 전에 동네 저장
+    if (SB) {
+      SB.auth.signInWithOAuth({
+        provider: provider,
+        options: { redirectTo: location.origin + location.pathname },
+      });
+      return; // 제공자 로그인 페이지로 이동 (돌아오면 checkAuthSession이 처리)
+    }
+    // 데모 폴백: 동네 기반 닉네임으로 가입 (로그인 유지, 로그아웃 없음)
     state.profile = { name: currentDong() + " 반디", signedUp: true, provider: provider };
     saveStore();
     finishOnboarding();
@@ -2040,4 +2080,5 @@
   // ---------- 시작 ----------
   render();
   if (!state.selectedDong) buildOnboarding(0); // 첫 방문 → 온보딩
+  checkAuthSession(); // OAuth 리다이렉트 복귀 시 세션 반영
 })();

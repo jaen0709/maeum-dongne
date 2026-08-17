@@ -28,6 +28,7 @@ self.addEventListener("activate", (e) => {
 // 네트워크 우선, 실패 시 캐시 (오프라인 대응)
 self.addEventListener("fetch", (e) => {
   if (e.request.method !== "GET") return;
+  if (new URL(e.request.url).origin !== self.location.origin) return; // CDN 등 크로스오리진은 브라우저에 맡김
   e.respondWith(
     fetch(e.request)
       .then((res) => {
