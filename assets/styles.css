@@ -1171,3 +1171,42 @@ html, body {
 }
 .cmt-input input:focus { border-color: var(--orange); }
 .cmt-input .btn { width: auto; flex: 0 0 auto; padding: 12px 18px; border-radius: 999px; }
+
+/* 봉사 후기 */
+.review { background: var(--card); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
+.review__photo { width: 100%; border-radius: 12px; margin-bottom: 10px; display: block; }
+.review__text { font-size: 14.5px; line-height: 1.6; color: #4a3d31; }
+.review__at { font-size: 12px; color: var(--text-sub); margin-top: 6px; }
+.review-form { background: var(--card); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 20px; }
+.review-form textarea { width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 12px; font-size: 14.5px; font-family: inherit; outline: none; resize: vertical; }
+.review-form textarea:focus { border-color: var(--orange); }
+.rv-photo-btn { display: inline-block; margin: 10px 0; padding: 9px 14px; border: 1px dashed var(--orange); border-radius: 999px; color: var(--orange-dark); font-size: 13px; font-weight: 700; cursor: pointer; }
+.review-form .review__photo { max-height: 220px; object-fit: cover; }
+.trace__review { margin-top: 8px; display: flex; gap: 8px; align-items: flex-start; }
+.trace__review img { width: 54px; height: 54px; border-radius: 8px; object-fit: cover; flex: 0 0 auto; }
+.trace__review span { font-size: 12.5px; color: #6b4a2a; font-style: italic; line-height: 1.5; }
+
+/* 동네 랭킹 */
+.rank-row { display: flex; align-items: center; gap: 10px; background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); margin-bottom: 8px; }
+.rank-row.is-me { border: 1.5px solid var(--orange); background: var(--orange-light); }
+.rank-row__medal, .rank-row__no { font-size: 16px; font-weight: 800; width: 26px; text-align: center; flex: 0 0 auto; color: var(--text-sub); }
+.rank-row__name { flex: 1; font-size: 14.5px; font-weight: 700; }
+.rank-row__val, .rank-row__stats { font-size: 13px; color: var(--text-sub); white-space: nowrap; }
+.rank-row--full { margin-bottom: 10px; }
+
+/* 정기기부 / 영수증 */
+.chk { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--text); margin: 0 2px 14px; cursor: pointer; }
+.chk input { width: 18px; height: 18px; accent-color: var(--orange); }
+.chk b { color: var(--orange-dark); }
+.donate-summary { background: var(--card); border-radius: var(--radius); padding: 14px 16px; box-shadow: var(--shadow); margin-bottom: 10px; }
+.donate-summary__total { font-size: 15px; }
+.donate-summary__total b { color: var(--accent); font-size: 18px; }
+.donate-summary__rec { font-size: 12.5px; color: var(--orange-dark); margin-top: 6px; }
+.receipt-row { display: flex; justify-content: space-between; align-items: center; background: var(--card); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); margin-bottom: 8px; font-size: 14px; cursor: pointer; }
+.receipt-row__amt { font-weight: 700; color: var(--accent); }
+.receipt { background: linear-gradient(160deg, #fffdf9, #fff2e2); border: 2px dashed #e6b98a; border-radius: 18px; padding: 26px 22px; text-align: center; box-shadow: var(--shadow); }
+.receipt__seal { font-size: 40px; }
+.receipt__brand { font-size: 12px; font-weight: 800; color: var(--orange); letter-spacing: 2px; margin-top: 4px; }
+.receipt__label { font-size: 20px; font-weight: 900; letter-spacing: 4px; margin: 4px 0 2px; }
+.receipt__no { font-size: 11px; color: var(--text-sub); letter-spacing: 1px; }
+.receipt__amt { font-size: 34px; font-weight: 900; color: var(--accent); margin: 14px 0; }

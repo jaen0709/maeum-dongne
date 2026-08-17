@@ -38,6 +38,9 @@
     donatedByDong: persisted.donatedByDong || {}, // 내가 기부한 금액(동네별)
     saved: new Set(persisted.saved || []), // 찜한 봉사 id
     postComments: persisted.postComments || {}, // 사랑방 댓글 {postId:[{author,body,at}]}
+    reviews: persisted.reviews || {}, // 봉사 후기 {activityId:{text,photo,at}}
+    donationReceipts: persisted.donationReceipts || [], // 기부 영수증
+    recurring: persisted.recurring || null, // 정기 기부 {amount,dong}
     postId: null,
   };
 
@@ -85,6 +88,9 @@
           donatedByDong: state.donatedByDong,
           saved: [...state.saved],
           postComments: state.postComments,
+          reviews: state.reviews,
+          donationReceipts: state.donationReceipts,
+          recurring: state.recurring,
         })
       );
     } catch (e) {}
@@ -507,6 +513,8 @@
     if (state.view === "manager") return renderManager();
     if (state.view === "donate") return renderDonate();
     if (state.view === "postDetail") return renderPostDetail();
+    if (state.view === "ranking") return renderRanking();
+    if (state.view === "receipt") return renderReceipt();
 
     if (state.tab === "home") return renderDashboard();
     if (state.tab === "find") return renderFind();
@@ -627,6 +635,37 @@
   }
   function findPost(id) {
     return getPosts().find((p) => p.id === id);
+  }
+  // 봉사 후기
+  let reviewPhoto = null; // 작성 중 임시 사진(dataURL)
+  function readPhoto(file, cb) {
+    const r = new FileReader();
+    r.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 900;
+        let w = img.width,
+          h = img.height;
+        if (w > max || h > max) {
+          const s = max / Math.max(w, h);
+          w = Math.round(w * s);
+          h = Math.round(h * s);
+        }
+        const cv = document.createElement("canvas");
+        cv.width = w;
+        cv.height = h;
+        cv.getContext("2d").drawImage(img, 0, 0, w, h);
+        cb(cv.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = r.result;
+    };
+    r.readAsDataURL(file);
+  }
+  // 동네 랭킹 (등불 많은 순)
+  function ranking() {
+    return CFG.dongs
+      .map((d) => ({ name: d.name, lanterns: dongLanternTotal(d.name), fund: dongFund(d.name) }))
+      .sort((a, b) => b.lanterns - a.lanterns);
   }
   // 봉사한 사람에게 건네는 따뜻한 칭찬 한마디
   function affirmation() {
@@ -751,6 +790,22 @@
       </div>
 
       <div class="dash-sec">
+        <span>🏆 이번 주 밝은 동네</span>
+        <button class="dash-more" data-rank="1">전체 보기 →</button>
+      </div>
+      ${ranking()
+        .slice(0, 3)
+        .map(
+          (r, i) => `
+        <div class="rank-row ${r.name === dong ? "is-me" : ""}">
+          <span class="rank-row__medal">${["🥇", "🥈", "🥉"][i]}</span>
+          <span class="rank-row__name">${escapeHtml(r.name)}${r.name === dong ? " · 우리 동네" : ""}</span>
+          <span class="rank-row__val">🏮 ${r.lanterns}</span>
+        </div>`
+        )
+        .join("")}
+
+      <div class="dash-sec">
         <span>🔥 지금 마감 임박</span>
         <button class="dash-more" data-go="find">전체 보기 →</button>
       </div>
@@ -771,7 +826,41 @@
       })
     );
     on("btn-donate", openDonate);
+    els.view.querySelectorAll("[data-rank]").forEach((b) => b.addEventListener("click", openRanking));
     bindCards();
+    els.view.scrollTop = 0;
+  }
+
+  // ---------- 동네 랭킹 ----------
+  function openRanking() {
+    state.view = "ranking";
+    render();
+  }
+  function renderRanking() {
+    const dong = currentDong();
+    const list = ranking();
+    els.view.innerHTML = `
+      <button class="detail__back" id="btn-back">← 홈으로</button>
+      <div class="section-head">🏆 우리 마포구 동네 랭킹</div>
+      <div class="sb-intro">봉사 등불이 많이 켜진 동네 순이에요. 오늘도 우리 동네를 밝혀봐요!</div>
+      <div class="rank-list">
+        ${list
+          .map(
+            (r, i) => `
+          <div class="rank-row rank-row--full ${r.name === dong ? "is-me" : ""}">
+            <span class="rank-row__no">${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span>
+            <span class="rank-row__name">${escapeHtml(r.name)}${r.name === dong ? " · 우리 동네" : ""}</span>
+            <span class="rank-row__stats">🏮 ${r.lanterns} · ${fmtWon(r.fund)}</span>
+          </div>`
+          )
+          .join("")}
+      </div>`;
+    document.getElementById("btn-back").addEventListener("click", () => {
+      state.view = "list";
+      state.tab = "home";
+      syncTabbar();
+      render();
+    });
     els.view.scrollTop = 0;
   }
 
@@ -803,6 +892,7 @@
         </div>
       </div>
       <p class="form-hint">💛 작은 금액도 이웃에게 큰 등불이 돼요.</p>
+      <label class="chk"><input type="checkbox" id="chk-recurring" ${state.recurring ? "checked" : ""}/> <span>매월 이 금액으로 <b>정기 기부</b>하기</span></label>
       <div class="notice">※ <b>데모 화면</b>이에요. 실제 결제·이체는 이루어지지 않아요. (실서비스에선 안전한 결제·모금 절차가 필요해요)</div>
       <div class="action-dock">
         <button class="btn btn--primary" id="btn-give">${fmtWon(donateAmount)} 기부하기 (데모)</button>
@@ -827,12 +917,60 @@
   function doDonate() {
     const dong = currentDong();
     state.donatedByDong[dong] = (state.donatedByDong[dong] || 0) + donateAmount;
+    const seq = String(state.donationReceipts.length + 1).padStart(4, "0");
+    state.donationReceipts.unshift({
+      id: "RC-2026-" + seq,
+      dong: dong,
+      amount: donateAmount,
+      at: new Date().toISOString(),
+    });
+    const rec = document.getElementById("chk-recurring");
+    if (rec && rec.checked) state.recurring = { amount: donateAmount, dong: dong };
+    else if (rec && !rec.checked && state.recurring) state.recurring = null;
     saveStore();
     state.view = "list";
     state.tab = "home";
     syncTabbar();
-    toast(`${fmtWon(donateAmount)} 기부 완료! ${escapeHtml(dong)}를 밝혀주셔서 고마워요 💛`);
+    toast(`${fmtWon(donateAmount)} 기부 완료! 영수증이 발급됐어요 🧾💛`);
     render();
+  }
+  function openReceipt(id) {
+    state.receiptId = id;
+    state.view = "receipt";
+    render();
+  }
+  function renderReceipt() {
+    const r = state.donationReceipts.find((x) => x.id === state.receiptId);
+    if (!r) {
+      state.view = "list";
+      state.tab = "me";
+      syncTabbar();
+      return render();
+    }
+    els.view.innerHTML = `
+      <button class="detail__back" id="btn-back">← 뒤로</button>
+      <div class="receipt">
+        <div class="receipt__seal">🧾</div>
+        <div class="receipt__brand">반디 이웃 기금</div>
+        <div class="receipt__label">기부 영수증</div>
+        <div class="receipt__no">${escapeHtml(r.id)}</div>
+        <div class="receipt__amt">${fmtWon(r.amount)}</div>
+        <div class="certificate__rows">
+          <div><span>기부처</span><b>${escapeHtml(r.dong)} 이웃 기금</b></div>
+          <div><span>기부자</span><b>${escapeHtml(myName())}</b></div>
+          <div><span>기부일</span><b>${fmtDate(r.at.slice(0, 10))}</b></div>
+        </div>
+        <div class="certificate__sign">💛 ${escapeHtml(r.dong)}를 밝혀주셔서 고마워요</div>
+      </div>
+      <div class="notice notice--sm">※ <b>데모 영수증</b>이에요. 실제 결제·세금 공제용 영수증이 아니에요.</div>
+    `;
+    document.getElementById("btn-back").addEventListener("click", () => {
+      state.view = "list";
+      state.tab = "me";
+      syncTabbar();
+      render();
+    });
+    els.view.scrollTop = 0;
   }
 
   // ---------- 찾기 ----------
@@ -940,6 +1078,25 @@
       dock = `<button class="btn btn--primary" id="btn-apply">신청하기 (${spotsLeft}자리 남음)</button>`;
     }
 
+    let reviewHtml = "";
+    if (attended) {
+      const rv = state.reviews[item.id];
+      reviewHtml = rv
+        ? `<h3 class="detail__sec-title">✍️ 내 후기</h3>
+           <div class="review">
+             ${rv.photo ? `<img class="review__photo" src="${rv.photo}" alt="후기 사진"/>` : ""}
+             ${rv.text ? `<div class="review__text">${escapeHtml(rv.text)}</div>` : ""}
+             <div class="review__at">${fmtWhen(rv.at)}</div>
+           </div>`
+        : `<h3 class="detail__sec-title">✍️ 후기 남기기</h3>
+           <div class="review-form">
+             <textarea id="rv-text" rows="3" placeholder="봉사 어떠셨어요? 한 줄 후기를 남겨보세요"></textarea>
+             <label class="rv-photo-btn">📷 사진 추가<input id="rv-photo" type="file" accept="image/*" hidden/></label>
+             <img id="rv-preview" class="review__photo" style="display:none"/>
+             <button class="btn btn--primary" id="rv-save">후기 저장</button>
+           </div>`;
+    }
+
     els.view.innerHTML = `
       <button class="detail__back" id="btn-back">← 목록으로</button>
       <div class="detail__hero">
@@ -960,6 +1117,7 @@
       ${mine ? `<div class="notice">🛠️ 내가 올린 봉사예요. 봉사 종료 후 <b>참여자 출석을 확인</b>해 주세요.</div>` : ""}
       <h3 class="detail__sec-title">활동 안내</h3>
       <div class="detail__desc">${escapeHtml(item.desc)}</div>
+      ${reviewHtml}
       <div class="action-dock">${dock}</div>
     `;
 
@@ -968,6 +1126,21 @@
     on("btn-cancel", () => doCancel(item));
     on("btn-manage", () => openManager(item.id));
     on("btn-viewcert", () => cert && openCert(cert.certId));
+    on("rv-save", () => saveReview(item.id));
+    const pf = document.getElementById("rv-photo");
+    if (pf)
+      pf.addEventListener("change", (e) => {
+        const f = e.target.files[0];
+        if (f)
+          readPhoto(f, (url) => {
+            reviewPhoto = url;
+            const pv = document.getElementById("rv-preview");
+            if (pv) {
+              pv.src = url;
+              pv.style.display = "block";
+            }
+          });
+      });
     els.view.scrollTop = 0;
   }
 
@@ -1608,11 +1781,35 @@
                 <div class="trace__body">
                   <div class="trace__title">${escapeHtml(c.title)}</div>
                   <div class="trace__meta">${fmtDate(c.date)} · ${escapeHtml(dongOfRegion(c.region))} · ${c.hours}시간</div>
+                  ${(() => {
+                    const rv = state.reviews[c.activityId];
+                    return rv
+                      ? `<div class="trace__review">${rv.photo ? `<img src="${rv.photo}" alt="후기"/>` : ""}${rv.text ? `<span>“${escapeHtml(rv.text)}”</span>` : ""}</div>`
+                      : "";
+                  })()}
                 </div>
               </div>`
               )
               .join("")
           : `<div class="mini-note">아직 발자취가 없어요. 첫 봉사를 시작해보세요 🌱</div>`
+      }
+
+      ${
+        state.donationReceipts.length || state.recurring
+          ? `<div class="section-head" style="margin-top:20px">🧾 나의 기부</div>
+             <div class="donate-summary">
+               <div class="donate-summary__total">누적 기부 <b>${fmtWon(myDonatedTotal())}</b></div>
+               ${state.recurring ? `<div class="donate-summary__rec">🔁 매월 ${fmtWon(state.recurring.amount)} 정기 기부 중 · ${escapeHtml(state.recurring.dong)}</div>` : ""}
+             </div>
+             ${state.donationReceipts
+               .map(
+                 (r) => `<div class="receipt-row" data-receipt="${r.id}">
+                 <span>🧾 ${escapeHtml(r.dong)} 이웃 기금</span>
+                 <span class="receipt-row__amt">${fmtWon(r.amount)} ›</span>
+               </div>`
+               )
+               .join("")}`
+          : ""
       }
 
       <div class="section-head" style="margin-top:20px">📋 예정된 봉사 <span class="cnt">${upcoming.length}</span></div>
@@ -1623,6 +1820,9 @@
     on("btn-changedong", () => buildOnboarding(3));
     on("btn-brag", shareBrag);
     on("btn-signup", () => buildOnboarding(4));
+    els.view.querySelectorAll("[data-receipt]").forEach((el) =>
+      el.addEventListener("click", () => openReceipt(el.dataset.receipt))
+    );
     bindCards();
     els.view.scrollTop = 0;
   }
@@ -1775,7 +1975,18 @@
   }
 
   // ---------- 내비게이션 ----------
+  function saveReview(id) {
+    const el = document.getElementById("rv-text");
+    const t = (el ? el.value : "").trim();
+    if (!t && !reviewPhoto) return toast("후기를 남겨주세요.");
+    state.reviews[id] = { text: t || "", photo: reviewPhoto || null, at: new Date().toISOString() };
+    reviewPhoto = null;
+    saveStore();
+    toast("따뜻한 후기 고마워요 ✍️");
+    render();
+  }
   function openDetail(id) {
+    reviewPhoto = null;
     state.detailId = id;
     state.view = "detail";
     render();
