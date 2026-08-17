@@ -565,6 +565,47 @@
   function fmtWon(n) {
     return "₩" + Number(n).toLocaleString("ko-KR");
   }
+  // 이번 달 기금 목표(다음 50만원 단위) + 진행률
+  function dongGoal(dong) {
+    return Math.max(1000000, Math.ceil((dongFund(dong) + 1) / 500000) * 500000);
+  }
+  function myDonatedTotal() {
+    return Object.values(state.donatedByDong).reduce((a, b) => a + b, 0);
+  }
+  // 업적 뱃지
+  function badges() {
+    const n = lanternsTotal();
+    const dongCount = Object.keys(lanternsByDong()).length;
+    return [
+      { emoji: "🕯️", name: "첫 등불", desc: "첫 봉사 참여", got: n >= 1 },
+      { emoji: "🏮", name: "등불 다섯", desc: "등불 5개", got: n >= 5 },
+      { emoji: "🗼", name: "동네 등대", desc: "등불 10개", got: n >= 10 },
+      { emoji: "🗺️", name: "발 넓은 반디", desc: "2개 동네+", got: dongCount >= 2 },
+      { emoji: "💛", name: "기부 천사", desc: "첫 기부", got: myDonatedTotal() >= 1 },
+      { emoji: "📣", name: "봉사 주최", desc: "봉사 올리기", got: state.myActivities.length >= 1 },
+      { emoji: "🙌", name: "제안왕", desc: "사랑방 제안", got: state.userPosts.length >= 1 },
+    ];
+  }
+  // 내 반디 자랑하기 (공유)
+  function shareBrag() {
+    const n = lanternsTotal();
+    const dong = currentDong();
+    const text =
+      n > 0
+        ? `나, 반디에서 등불 ${n}개를 켰어요! 🏮 우리 ${dong}를 밝히는 중이에요 ✨ #반디 #봉사`
+        : `반디에서 우리 ${dong}를 밝혀볼래요? 🏮 작은 봉사가 큰 빛이 돼요 ✨ #반디`;
+    const url = location.origin + location.pathname;
+    if (navigator.share) {
+      navigator.share({ title: "반디", text: text, url: url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text + " " + url).then(
+        () => toast("자랑 문구를 복사했어요! 어디든 붙여넣어 자랑해보세요 🔗"),
+        () => toast("복사에 실패했어요.")
+      );
+    } else {
+      toast("이 브라우저는 공유를 지원하지 않아요.");
+    }
+  }
   // 봉사한 사람에게 건네는 따뜻한 칭찬 한마디
   function affirmation() {
     const n = lanternsTotal();
@@ -661,6 +702,10 @@
       <div class="fund">
         <div class="fund__head">🤝 우리 <b>${escapeHtml(dong)}</b> 이웃 기금</div>
         <div class="fund__amt">${fmtWon(dongFund(dong))}</div>
+        <div class="fund-goal">
+          <div class="fund-goal__bar"><i style="width:${Math.min(100, Math.round((dongFund(dong) / dongGoal(dong)) * 100))}%"></i></div>
+          <div class="fund-goal__txt">🎯 이번 달 목표 ${fmtWon(dongGoal(dong))} · <b>${Math.round((dongFund(dong) / dongGoal(dong)) * 100)}%</b></div>
+        </div>
         <div class="fund__sub">🏮 봉사 등불 ${dongLanternTotal(dong)} · 이웃들이 함께 모았어요</div>
         <button class="btn btn--primary" id="btn-donate">우리 동네 기부하기</button>
       </div>
@@ -1383,6 +1428,7 @@
       </div>
 
       <div class="affirm">${affirmation()}</div>
+      <button class="brag-btn" id="btn-brag">🔗 내 반디 자랑하기</button>
 
       ${
         !state.profile.signedUp
@@ -1401,6 +1447,20 @@
       )}, ${dawnColor(v)})">
         <span>💡 우리 <b>${escapeHtml(currentDong())}</b> 전체 등불 <b>🏮 ${dongLanternTotal(currentDong())}</b> · ${st.emoji} ${st.name}</span>
         <button class="mini-bright__btn" id="btn-changedong">동네 바꾸기</button>
+      </div>
+
+      <div class="section-head" style="margin-top:20px">🏅 나의 뱃지</div>
+      <div class="badges">
+        ${badges()
+          .map(
+            (b) => `
+          <div class="badge ${b.got ? "is-got" : ""}">
+            <span class="badge__ic">${b.emoji}</span>
+            <span class="badge__name">${escapeHtml(b.name)}</span>
+            <span class="badge__desc">${b.got ? escapeHtml(b.desc) : "🔒 " + escapeHtml(b.desc)}</span>
+          </div>`
+          )
+          .join("")}
       </div>
 
       <div class="section-head" style="margin-top:20px">🏮 나의 봉사 발자취</div>
@@ -1428,6 +1488,8 @@
       ${mineHtml}
     `;
     on("btn-changedong", () => buildOnboarding(3));
+    on("btn-brag", shareBrag);
+    on("btn-signup", () => buildOnboarding(4));
     bindCards();
     els.view.scrollTop = 0;
   }

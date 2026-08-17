@@ -1097,3 +1097,41 @@ html, body {
 .fund-use__title { font-size: 14px; font-weight: 600; }
 .fund-use__cycle { font-size: 12px; color: var(--text-sub); margin-top: 2px; }
 .fund-use__cost { font-size: 13px; font-weight: 700; color: var(--accent); white-space: nowrap; }
+
+/* 기금 목표 진행률 */
+.fund-goal { margin: 4px 2px 12px; }
+.fund-goal__bar { height: 8px; background: rgba(120, 70, 20, 0.12); border-radius: 999px; overflow: hidden; }
+.fund-goal__bar > i { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--gold), var(--accent)); }
+.fund-goal__txt { font-size: 12px; color: #8a6a45; margin-top: 6px; }
+.fund-goal__txt b { color: var(--accent); }
+
+/* 자랑 버튼 */
+.brag-btn {
+  width: 100%;
+  border: 1.5px solid var(--orange);
+  background: #fff;
+  color: var(--orange-dark);
+  border-radius: 12px;
+  padding: 13px;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+  margin-bottom: 14px;
+}
+.brag-btn:active { background: var(--orange-light); }
+
+/* 업적 뱃지 */
+.badges { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.badge {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 4px;
+  text-align: center;
+  opacity: 0.55;
+  filter: grayscale(1);
+}
+.badge.is-got { opacity: 1; filter: none; border-color: #f3d9b8; background: linear-gradient(135deg, #fff8f0, #fff1e2); }
+.badge__ic { font-size: 26px; display: block; }
+.badge__name { font-size: 11.5px; font-weight: 700; display: block; margin-top: 4px; }
+.badge__desc { font-size: 9.5px; color: var(--text-sub); display: block; margin-top: 1px; }
