@@ -36,6 +36,9 @@
     managed: persisted.managed || {}, // 주최자 출석 관리: {actId:{applicants:[],done}}
     communityLanterns: persisted.communityLanterns || {}, // 동네별 이웃(NPC) 등불
     donatedByDong: persisted.donatedByDong || {}, // 내가 기부한 금액(동네별)
+    saved: new Set(persisted.saved || []), // 찜한 봉사 id
+    postComments: persisted.postComments || {}, // 사랑방 댓글 {postId:[{author,body,at}]}
+    postId: null,
   };
 
   let createForm = null;
@@ -80,6 +83,8 @@
           managed: state.managed,
           communityLanterns: state.communityLanterns,
           donatedByDong: state.donatedByDong,
+          saved: [...state.saved],
+          postComments: state.postComments,
         })
       );
     } catch (e) {}
@@ -501,6 +506,7 @@
     if (state.view === "compose") return renderCompose();
     if (state.view === "manager") return renderManager();
     if (state.view === "donate") return renderDonate();
+    if (state.view === "postDetail") return renderPostDetail();
 
     if (state.tab === "home") return renderDashboard();
     if (state.tab === "find") return renderFind();
@@ -606,6 +612,22 @@
       toast("이 브라우저는 공유를 지원하지 않아요.");
     }
   }
+  // 찜(관심 봉사)
+  function isSaved(id) {
+    return state.saved.has(id);
+  }
+  function toggleSave(id) {
+    if (state.saved.has(id)) state.saved.delete(id);
+    else state.saved.add(id);
+    saveStore();
+  }
+  // 사랑방 댓글
+  function commentCount(id) {
+    return (state.postComments[id] || []).length;
+  }
+  function findPost(id) {
+    return getPosts().find((p) => p.id === id);
+  }
   // 봉사한 사람에게 건네는 따뜻한 칭찬 한마디
   function affirmation() {
     const n = lanternsTotal();
@@ -669,6 +691,7 @@
           <div class="recruit-bar"><i style="width:${pct}%"></i></div>
           <span class="recruit-text">${item.applied}/${item.capacity}명</span>
           ${tag ? `<span style="margin-left:8px">${tag}</span>` : ""}
+          <button class="save-btn ${isSaved(item.id) ? "is-on" : ""}" data-save="${item.id}" aria-label="찜">${isSaved(item.id) ? "♥" : "♡"}</button>
         </div>
       </article>`;
   }
@@ -879,6 +902,13 @@
     els.view.querySelectorAll(".card").forEach((card) =>
       card.addEventListener("click", () => openDetail(card.dataset.id))
     );
+    els.view.querySelectorAll(".save-btn").forEach((b) =>
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleSave(b.dataset.save);
+        render();
+      })
+    );
   }
 
   // ---------- 활동 상세 ----------
@@ -1049,7 +1079,7 @@
     const joined = isJoined(p);
     const count = joinCount(p);
     return `
-      <article class="post">
+      <article class="post" data-post="${p.id}">
         <div class="post__head">
           <span class="post__type ${isProposal ? "is-proposal" : ""}">${isProposal ? "🙌 제안" : "💬 자유"}</span>
           <span class="post__when">${fmtWhen(p.createdAt)}</span>
@@ -1058,13 +1088,14 @@
         <div class="post__body">${escapeHtml(p.body)}</div>
         <div class="post__foot">
           <span class="post__author">${escapeHtml(p.author)} · ${escapeHtml(shortRegion(p.region))}</span>
-          ${
-            isProposal
-              ? `<button class="join-btn ${joined ? "is-joined" : ""}" data-post="${p.id}">
-                   ${joined ? "함께해요 ✓" : "같이할래요"} <b>${count}</b>
-                 </button>`
-              : ""
-          }
+          <span class="post__right">
+            <span class="post__cmt">💬 ${commentCount(p.id)}</span>
+            ${
+              isProposal
+                ? `<button class="join-btn ${joined ? "is-joined" : ""}" data-post="${p.id}">${joined ? "함께해요 ✓" : "같이할래요"} <b>${count}</b></button>`
+                : ""
+            }
+          </span>
         </div>
       </article>`;
   }
@@ -1101,10 +1132,105 @@
         renderSarangbang();
       })
     );
+    els.view.querySelectorAll(".post").forEach((el) =>
+      el.addEventListener("click", () => openPost(el.dataset.post))
+    );
     els.view.querySelectorAll(".join-btn").forEach((b) =>
-      b.addEventListener("click", () => toggleJoin(b.dataset.post))
+      b.addEventListener("click", (e) => {
+        e.stopPropagation();
+        toggleJoin(b.dataset.post);
+        renderSarangbang();
+      })
     );
     els.view.scrollTop = 0;
+  }
+
+  // ---------- 사랑방 글 상세 + 댓글 ----------
+  function openPost(id) {
+    state.postId = id;
+    state.view = "postDetail";
+    render();
+  }
+  function renderPostDetail() {
+    const p = findPost(state.postId);
+    if (!p) {
+      state.view = "list";
+      state.tab = "sarangbang";
+      syncTabbar();
+      return render();
+    }
+    const isProposal = p.type === "proposal";
+    const joined = isJoined(p);
+    const jc = joinCount(p);
+    const comments = state.postComments[p.id] || [];
+    els.view.innerHTML = `
+      <button class="detail__back" id="btn-back">← 사랑방으로</button>
+      <article class="post post--full">
+        <div class="post__head">
+          <span class="post__type ${isProposal ? "is-proposal" : ""}">${isProposal ? "🙌 제안" : "💬 자유"}</span>
+          <span class="post__when">${fmtWhen(p.createdAt)}</span>
+        </div>
+        ${isProposal && p.title ? `<h2 class="post__title">${escapeHtml(p.title)}</h2>` : ""}
+        <div class="post__body">${escapeHtml(p.body)}</div>
+        <div class="post__foot">
+          <span class="post__author">${escapeHtml(p.author)} · ${escapeHtml(shortRegion(p.region))}</span>
+          ${
+            isProposal
+              ? `<button class="join-btn ${joined ? "is-joined" : ""}" id="p-join">${joined ? "함께해요 ✓" : "같이할래요"} <b>${jc}</b></button>`
+              : ""
+          }
+        </div>
+      </article>
+      <div class="section-head" style="font-size:15px;margin-top:18px">💬 댓글 ${comments.length}</div>
+      <div class="comments">
+        ${
+          comments.length
+            ? comments
+                .map(
+                  (c) => `
+              <div class="comment">
+                <div class="comment__author">${escapeHtml(c.author)} <span>· ${fmtWhen(c.at)}</span></div>
+                <div class="comment__body">${escapeHtml(c.body)}</div>
+              </div>`
+                )
+                .join("")
+            : `<div class="mini-note">첫 댓글을 남겨보세요 💛</div>`
+        }
+      </div>
+      <div class="action-dock">
+        <div class="cmt-input">
+          <input id="cmt-text" type="text" maxlength="120" placeholder="따뜻한 댓글을 남겨주세요" />
+          <button class="btn btn--primary" id="cmt-send">등록</button>
+        </div>
+      </div>
+    `;
+    document.getElementById("btn-back").addEventListener("click", () => {
+      state.view = "list";
+      state.tab = "sarangbang";
+      syncTabbar();
+      render();
+    });
+    on("p-join", () => {
+      toggleJoin(p.id);
+      renderPostDetail();
+    });
+    on("cmt-send", () => addComment(p.id));
+    const ci = document.getElementById("cmt-text");
+    if (ci) ci.addEventListener("keydown", (e) => { if (e.key === "Enter") addComment(p.id); });
+    els.view.scrollTop = 0;
+  }
+  function addComment(id) {
+    const el = document.getElementById("cmt-text");
+    const t = (el ? el.value : "").trim();
+    if (!t) return toast("댓글을 입력해주세요.");
+    (state.postComments[id] = state.postComments[id] || []).push({
+      author: myName(),
+      body: t,
+      at: new Date().toISOString(),
+    });
+    saveStore();
+    renderPostDetail();
+    toast("댓글을 남겼어요 💬");
   }
 
   function isJoined(p) {
@@ -1134,7 +1260,6 @@
       else up.joinedBy.push(myName());
     }
     saveStore();
-    renderSarangbang();
   }
 
   // ---------- 사랑방 글쓰기 ----------
@@ -1462,6 +1587,14 @@
           )
           .join("")}
       </div>
+
+      ${(() => {
+        const sv = [...state.saved].map(findActivity).filter(Boolean);
+        return sv.length
+          ? `<div class="section-head" style="margin-top:20px">💗 찜한 봉사 <span class="cnt">${sv.length}</span></div>` +
+              sv.map(cardHtml).join("")
+          : "";
+      })()}
 
       <div class="section-head" style="margin-top:20px">🏮 나의 봉사 발자취</div>
       ${
