@@ -823,7 +823,7 @@
     els.view.querySelectorAll(".chip").forEach((chip) =>
       chip.addEventListener("click", () => {
         state.category = chip.dataset.cat;
-        renderHome();
+        renderFind();
       })
     );
     bindCards();
