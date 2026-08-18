@@ -63,11 +63,23 @@
 
   // Supabase Auth — 설정(supabase-config.js)이 채워지면 실제 소셜 로그인 동작, 아니면 데모
   const SB =
-    window.supabase && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url
+    window.supabase && window.SUPABASE_CONFIG && window.SUPABASE_CONFIG.url && window.SUPABASE_CONFIG.anonKey
       ? window.supabase.createClient(window.SUPABASE_CONFIG.url, window.SUPABASE_CONFIG.anonKey)
       : null;
   function authEnabled() {
     return !!SB;
+  }
+  let authProviders = new Set(); // Supabase에서 실제 켜진 소셜 제공자
+  async function fetchProviders() {
+    if (!SB) return;
+    try {
+      const r = await fetch(window.SUPABASE_CONFIG.url + "/auth/v1/settings", {
+        headers: { apikey: window.SUPABASE_CONFIG.anonKey },
+      });
+      const j = await r.json();
+      const ext = j.external || {};
+      authProviders = new Set(Object.keys(ext).filter((k) => ext[k]));
+    } catch (e) {}
   }
   async function checkAuthSession() {
     if (!SB) return;
@@ -513,14 +525,15 @@
   function socialSignup(provider) {
     if (!state.selectedDong) state.selectedDong = "연남동";
     saveStore(); // 리다이렉트 전에 동네 저장
-    if (SB) {
+    if (SB && authProviders.has(provider)) {
       SB.auth.signInWithOAuth({
         provider: provider,
         options: { redirectTo: location.origin + location.pathname },
       });
       return; // 제공자 로그인 페이지로 이동 (돌아오면 checkAuthSession이 처리)
     }
-    // 데모 폴백: 동네 기반 닉네임으로 가입 (로그인 유지, 로그아웃 없음)
+    // 아직 Supabase에서 안 켠 제공자 → 부드럽게 데모로 시작
+    if (SB) toast("이 로그인은 아직 설정 전이에요. 우선 반디로 시작할게요 🙂");
     state.profile = { name: currentDong() + " 반디", signedUp: true, provider: provider };
     saveStore();
     finishOnboarding();
@@ -2081,4 +2094,5 @@
   render();
   if (!state.selectedDong) buildOnboarding(0); // 첫 방문 → 온보딩
   checkAuthSession(); // OAuth 리다이렉트 복귀 시 세션 반영
+  fetchProviders(); // 실제 켜진 소셜 제공자 확인
 })();

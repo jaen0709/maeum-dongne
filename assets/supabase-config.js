@@ -12,6 +12,6 @@
 //  https://jaen0709.github.io/maeum-dongne/  를 등록하세요.
 // ────────────────────────────────────────────────────────────
 window.SUPABASE_CONFIG = {
-  url: "",
-  anonKey: "",
+  url: "https://etlyqnnqtqenzxaxgwem.supabase.co",
+  anonKey: "sb_publishable_ZOTN9gonM8mJUNVYZ46XUA_pWktv589",
 };
