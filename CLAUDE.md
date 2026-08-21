@@ -1,66 +1,66 @@
-# 마음동네 (Maeum Dongne)
+# 반디 (Bandi)
 
-> 동네 실시간 봉사 매칭 웹앱. "이거 같이 해볼래요?"에서 시작하는 따뜻한 봉사.
+> 작은 봉사 하나가 반디 한 마리. 우리 동네를 밤에서 새벽으로 밝히는 동네 봉사·기부 매칭 앱.
 
-당근마켓의 '동네 생활권' 경험을 봉사활동에 적용했습니다. 공식 봉사시간 인증(1365·VMS)이
-아니라, **참여했다는 사실을 따뜻하게 기록하는 비공식 '마음확인증'**을 발급하는 것이 핵심 차별점입니다.
+## 브랜드
+- **앱 이름**: 반디 (반딧불이 — 스스로 빛나는 작은 존재. "반디=반짝"에서 온 순우리말)
+- **한 줄**: 우리 동네를 밝히는 봉사
+- **단위**: **등불**(🏮) — 봉사 참여 1건 = 등불 1개. 동네 전체 등불이 쌓일수록 밤하늘이 밝아짐
+- **비유**: 깜깜한 밤 → 이웃들의 봉사·기부가 모이면 동이 트듯 동네가 밝아진다 (온보딩의 핵심)
 
 ## 지금 형태 (중요)
+**서버 없는 순수 정적 PWA**. Expo/React Native 아님.
+- `index.html` + `assets/{styles.css, data.js, app.js, supabase-config.js}` + 아이콘 + `sw.js` + `manifest.webmanifest`
+- 상태는 전부 **localStorage** (`maeumdongne_v1` 키 — 과거 이름 유지). 서버·빌드·번들러 없음.
+- 실행: `python -m http.server 8777` → http://localhost:8777
+- 배포: **GitHub Pages** → https://jaen0709.github.io/maeum-dongne/ (repo: `maeum-dongne`, main 브랜치)
+- 정적 자원은 `?v=NN` 쿼리로 캐시 무효화 (index.html). **JS/CSS 바꾸면 v 번호 올릴 것.**
 
-이 폴더는 **서버 없는 순수 정적 웹앱**입니다. Expo/React Native/Supabase 아님.
-- `index.html` + `assets/styles.css` + `assets/data.js` + `assets/app.js` 한 벌
-- 상태는 전부 **localStorage** (`maeumdongne_v1`)에 저장. 서버·빌드·번들러 없음.
-- 실행: `python -m http.server 8777` (`.claude/launch.json`의 "봉사모아" 설정) → http://localhost:8777
-- 기존 프로토타입 "봉사모아"를 마음동네 컨셉으로 발전시킨 결과물입니다.
+## 제품 원칙
+1. **양방향 심플** — 참여도, 봉사 올리기도 3단계 이내. 프리셋 칩 우선.
+2. **활동 중심 커뮤니티** — 사랑방 기본값은 "이거 같이 해볼래?"(활동 제안).
+3. **밝아지는 동네** — 개인 실적이 아니라 "우리가 함께 밝힌다"(등불·밝기 지수).
+4. **셀프 완료 금지** — 참여 완료는 본인이 아니라 **주최자(관리자)가 출석 확인**해야 확정.
+5. **비공식 인증** — 마음확인증은 공식 봉사시간 인증이 아님. 고지 문구(`DISCLAIMER`) 항상 노출.
+6. **기부는 데모** — 실제 결제 없음. "데모" 고지 유지 (실서비스는 기부금품법 등 법적 검토 필요).
 
-## 제품 원칙 (코드 결정 시 기준)
-
-1. **양방향 심플함** — 봉사 올리는 사람도, 참여하는 사람도 3단계 이내. 날짜 피커 대신 프리셋 칩,
-   자유 입력 대신 선택지를 우선. (`봉사 올리기` 폼이 이 원칙의 예)
-2. **활동 중심** — 사랑방 글쓰기 기본값은 "밥 먹자"가 아니라 **"이거 같이 해볼래?"(활동 제안)**.
-   이 기본값(`type: 'proposal'`)을 흐리지 마세요.
-3. **밝아지는 동네** — 개인 실적이 아니라 "우리가 함께 밝힌다"는 감각. **밝기 지수**가 이를 구현.
-4. **공식 인증이 아님을 항상 명시** — 마음확인증이 노출되는 모든 화면에 고지 문구(`DISCLAIMER`)가
-   있어야 합니다. 이 문구를 임의로 제거하지 마세요.
-
-## 화면 구성 (하단 4탭 + FAB)
-
-| 탭 | 내용 |
+## 화면 (하단 5탭 + FAB)
+| 탭/뷰 | 내용 |
 |---|---|
-| 🔍 찾기(home) | 동네 밝기 위젯 + 검색/카테고리 + 마감임박순 활동 카드 |
-| 💬 사랑방(sarangbang) | 활동 제안/자유글 피드, '같이할래요' 참여, 글쓰기 |
-| 🕯️ 확인증함(certs) | 발급받은 마음확인증 목록 → 확인증 상세(고지 포함) |
-| 🌱 나(me) | 이웃 등급·마음포인트·밝기 기여, 예정 봉사, 내가 올린 봉사 |
+| 🏠 홈(dashboard) | 인사·밤하늘 밝기·통계·빠른액션·**이웃 기금(기부·목표)**·기금 사용처·**동네 랭킹**·마감임박 |
+| 🔍 찾기(find) | 검색·카테고리·마감임박순 카드(찜 하트 포함) |
+| 💬 사랑방(sarangbang) | 제안/자유글 피드 → **글 상세+댓글**, 같이할래요 |
+| 🏮 등불(certs) | 내 등불 총합·동네별·마음확인증 카드 → 확인증 상세(고지) |
+| 🌱 나(me) | 프로필·**칭찬 메시지**·자랑하기·업적 뱃지·찜한 봉사·**봉사 발자취(후기)**·기부 내역 |
 | ➕ FAB | 봉사 올리기 (홈에서만 노출) |
+| 그 외 뷰 | detail / manager(출석) / donate / receipt / ranking / postDetail |
 
-## 도메인 규칙 (`assets/app.js`)
+## 핵심 로직 (`assets/app.js`, 단일 IIFE)
+- **동/밝기/색**: `dongBrightness`(0~100) → `dawnColor`(밤→새벽 보간). `dongLanternTotal`=시드+새 등불.
+- **등불**: 확인증 1개=등불 1개. `lanternsTotal`(내), `communityLanterns`(이웃 확정분).
+- **온보딩**: 5스텝(슬라이드3→동선택→소셜가입). ✕ 건너뛰기. 위치기반 동 정렬(Geolocation, 거부 시 마포구). `buildOnboarding(step)`.
+- **가입/로그인**: 소셜 버튼(카카오·구글·애플). **Supabase Auth 연동됨** — provider 켜지면 실동작, 아니면 데모 폴백. 로그아웃 없음(로그인 유지).
+- **관리자 출석**: `getManaged`(신청자=데모 이웃+나) → `managerConfirm`(출석분 등불 점등, 나는 마음확인증 발급).
+- **기부**: `doDonate`(동네 기금↑ + 영수증 발급 + 정기기부 옵션). `dongGoal` 목표 진행률.
+- **후기**: `saveReview`(참여완료 봉사에 한줄+사진, `readPhoto`로 900px 리사이즈). 발자취에 표시.
+- **뱃지/자랑/랭킹**: `badges()`, `shareBrag()`(Web Share/클립보드), `ranking()`.
+- **찜/댓글**: `toggleSave`, `postComments`.
 
-- **마음확인증**: 신청 → '참여 완료 처리' → `doAttend()`가 확인증 발급 + 마음포인트 적립. **멱등**
-  (같은 활동 재발급 안 함). 확인증 번호 `MH-2026-####`.
-- **마음포인트**: 활동당 `points = min(200, hours*30)`. `heartPoints()` = 확인증 포인트 합계.
-- **이웃 등급**: `MD_CONFIG.levels` 기준(씨앗→새싹→햇살→별빛→등대). `levelInfo()`로 계산.
-- **동네 밝기 지수(0~100)**: `brightnessSeed(62)` + 참여 완료 1건당 +4. `brightnessStage()`로 단계.
-  이웃들이 함께 밝힌다는 메시지를 담는 장치.
-- **사랑방 제안글**: `type:'proposal'`은 제목 필수 + '같이할래요' 버튼. 글쓴이는 자동 첫 참여자
-  (`joinedBy: [ME.name]`). 자유글(`free`)은 제목/참여 없음.
-- **봉사 올리기 마감일**: 활동 2일 전. 단 과거로 가지 않게 `max(오늘, 활동일-2)`.
+## Supabase 인증 (`assets/supabase-config.js`)
+- `url`, `anonKey`(publishable) 채우면 활성. 현재 프로젝트: `etlyqnnqtqenzxaxgwem`.
+- **provider는 아직 미설정** → 지금은 데모 로그인. Supabase Authentication→Providers에서 Google/Kakao 켜면 실동작.
+- `fetchProviders()`가 켜진 제공자 감지 → 미설정 제공자 클릭 시 데모로 폴백.
+- OAuth 복귀 시 `checkAuthSession()`이 세션→프로필 반영.
+- ⚠️ **secret key(`sb_secret_`)는 절대 클라이언트/저장소에 넣지 말 것.**
 
-## 설정/데이터 (`assets/data.js`)
-
-- `window.VOLUNTEER_DATA` — 동네 봉사 시드 8건 (실서비스에선 API로 교체)
-- `window.SARANGBANG_SEED` — 사랑방 시드 3건
-- `window.MD_CONFIG` — 데모 기준일(`today: 2026-08-14`), 데모 사용자(`me`), 카테고리,
-  밝기 시드, 등급표, 밝기 단계표. **데모 기준일은 실제 배포 시 `new Date()`로 교체.**
+## 데이터 (`assets/data.js`)
+- `VOLUNTEER_DATA`(봉사 8건), `SARANGBANG_SEED`(3건), `MD_CONFIG`(today 데모 기준일 2026-08-14, me, district, **dongs**[brightness/lanterns/donations/lat/lng], categories, levels, brightnessStages, dawnScale, fundUses, donationPresets).
 
 ## 코딩 컨벤션
+- UI·주석 **한국어**, 따뜻한 존댓말. 색상은 CSS 변수(오렌지 테마 `--orange` 등)로.
+- 외부 라이브러리 추가 금지(Supabase-js CDN 제외). 순수 정적 유지.
+- 렌더는 `render()` 라우터 → 화면별 `render*()`. innerHTML 후 이벤트 바인딩.
+- **바꾼 뒤 반드시**: 브라우저에서 동작 확인 + `index.html`의 `?v=` 올리기 + 커밋/푸시.
 
-- **UI 텍스트·주석 모두 한국어**, 존댓말·따뜻한 톤 ("실패했습니다" → "불러오지 못했어요").
-- **색상 하드코딩 금지** — `styles.css`의 CSS 변수(`--orange` 등 오렌지 테마)를 쓰세요.
-- 외부 라이브러리/날짜 라이브러리 **추가 금지** — 순수 정적 앱을 유지합니다.
-- 렌더는 `render()` 라우터 → 화면별 `render*()` 함수. innerHTML 후 이벤트 바인딩 패턴.
-
-## 다음 단계 (아직 없음)
-
-- 실제 위치 기반 반경 검색 (현재는 전체 목록 + 검색어 필터)
-- 서버/DB 연동 (현재 localStorage) — 이식 시 `VOLUNTEER_DATA`/`SARANGBANG_SEED`를 API로
-- 사진 업로드, 활동 후기, 정기 봉사 전환, 푸시 알림
+## 다음 단계(미구현)
+- 실제 소셜 로그인(provider 설정), 서버/DB(현재 localStorage), 푸시 알림, 후기/랭킹 커뮤니티 확장.

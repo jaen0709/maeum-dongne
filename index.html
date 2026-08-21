@@ -15,9 +15,15 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default" />
   <meta name="apple-mobile-web-app-title" content="반디" />
 
-  <link rel="stylesheet" href="assets/styles.css?v=13" />
+  <link rel="stylesheet" href="assets/styles.css?v=14" />
 </head>
 <body>
+  <div id="splash">
+    <div class="splash__logo">🪰</div>
+    <div class="splash__name">반디</div>
+    <div class="splash__tag">우리 동네를 밝히는 봉사</div>
+  </div>
+
   <div id="app">
     <!-- 상단 헤더 -->
     <header class="app-header">
@@ -64,9 +70,9 @@
   <div id="toast" class="toast" hidden></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="assets/supabase-config.js?v=13"></script>
-  <script src="assets/data.js?v=13"></script>
-  <script src="assets/app.js?v=13"></script>
+  <script src="assets/supabase-config.js?v=14"></script>
+  <script src="assets/data.js?v=14"></script>
+  <script src="assets/app.js?v=14"></script>
   <script>
     // 서비스워커 등록 (오프라인 · 설치 지원)
     if ("serviceWorker" in navigator) {
@@ -74,6 +80,13 @@
         navigator.serviceWorker.register("sw.js").catch(function () {});
       });
     }
+    // 스플래시 페이드아웃
+    window.addEventListener("load", function () {
+      setTimeout(function () {
+        var s = document.getElementById("splash");
+        if (s) { s.classList.add("is-hidden"); setTimeout(function () { s.remove(); }, 450); }
+      }, 650);
+    });
   </script>
 </body>
 </html>

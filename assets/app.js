@@ -1140,7 +1140,8 @@
              ${rv.photo ? `<img class="review__photo" src="${rv.photo}" alt="후기 사진"/>` : ""}
              ${rv.text ? `<div class="review__text">${escapeHtml(rv.text)}</div>` : ""}
              <div class="review__at">${fmtWhen(rv.at)}</div>
-           </div>`
+           </div>
+           <button class="brag-btn" id="rv-share">🔗 이 후기 자랑하기</button>`
         : `<h3 class="detail__sec-title">✍️ 후기 남기기</h3>
            <div class="review-form">
              <textarea id="rv-text" rows="3" placeholder="봉사 어떠셨어요? 한 줄 후기를 남겨보세요"></textarea>
@@ -1180,6 +1181,7 @@
     on("btn-manage", () => openManager(item.id));
     on("btn-viewcert", () => cert && openCert(cert.certId));
     on("rv-save", () => saveReview(item.id));
+    on("rv-share", () => shareReview(item));
     const pf = document.getElementById("rv-photo");
     if (pf)
       pf.addEventListener("change", (e) => {
@@ -2037,6 +2039,22 @@
     saveStore();
     toast("따뜻한 후기 고마워요 ✍️");
     render();
+  }
+  function shareReview(item) {
+    const rv = state.reviews[item.id];
+    if (!rv) return;
+    const text = `반디에서 봉사 다녀왔어요 🏮 "${rv.text || item.title}" — 우리 ${currentDong()} 밝히는 중이에요 ✨ #반디 #봉사`;
+    const url = location.origin + location.pathname;
+    if (navigator.share) {
+      navigator.share({ title: "반디 봉사 후기", text: text, url: url }).catch(() => {});
+    } else if (navigator.clipboard) {
+      navigator.clipboard.writeText(text + " " + url).then(
+        () => toast("후기 자랑 문구를 복사했어요 🔗"),
+        () => toast("복사에 실패했어요.")
+      );
+    } else {
+      toast("이 브라우저는 공유를 지원하지 않아요.");
+    }
   }
   function openDetail(id) {
     reviewPhoto = null;

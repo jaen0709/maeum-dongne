@@ -1210,3 +1210,27 @@ html, body {
 .receipt__label { font-size: 20px; font-weight: 900; letter-spacing: 4px; margin: 4px 0 2px; }
 .receipt__no { font-size: 11px; color: var(--text-sub); letter-spacing: 1px; }
 .receipt__amt { font-size: 34px; font-weight: 900; color: var(--accent); margin: 14px 0; }
+
+/* 스플래시 */
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  background: linear-gradient(160deg, #0b1026, #241a4d 70%, #4a2f5e);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: opacity 0.45s ease;
+}
+#splash.is-hidden { opacity: 0; pointer-events: none; }
+.splash__logo { font-size: 64px; animation: splash-glow 1.6s ease-in-out infinite; }
+@keyframes splash-glow {
+  0%, 100% { filter: drop-shadow(0 0 6px rgba(255, 205, 110, 0.45)); transform: translateY(0); }
+  50% { filter: drop-shadow(0 0 24px rgba(255, 205, 110, 0.95)); transform: translateY(-6px); }
+}
+.splash__name { font-size: 34px; font-weight: 900; letter-spacing: 3px; margin-top: 12px; }
+.splash__tag { font-size: 14px; opacity: 0.85; margin-top: 6px; }
