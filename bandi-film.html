@@ -1,0 +1,197 @@
+<meta charset="utf-8" />
+<title>반디 필름</title>
+<style>
+  :root{
+    --gold:#ffd27a; --gold-hi:#fff2cf; --warm:#fff6ea; --dim:#b9b7d6;
+    --ink:#05070f;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  #film{
+    position:fixed; inset:0; overflow:hidden; background:var(--ink);
+    color:var(--warm); cursor:pointer;
+    font-family:"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",-apple-system,BlinkMacSystemFont,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  #sky{position:absolute; inset:0; width:100%; height:100%; display:block}
+  .vignette{position:absolute; inset:0; pointer-events:none;
+    background:radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(0,0,0,.55) 100%)}
+  .stage{position:absolute; inset:0; display:flex; align-items:center; justify-content:center}
+  .scene{position:absolute; width:88%; max-width:640px; text-align:center;
+    opacity:0; transform:translateY(14px) scale(.99); transition:opacity 1s ease, transform 1.1s ease;
+    text-shadow:0 2px 30px rgba(0,0,0,.55)}
+  .scene.is-on{opacity:1; transform:translateY(0) scale(1)}
+  .line{font-size:clamp(26px,6.4vw,46px); font-weight:800; line-height:1.42; letter-spacing:-.5px; word-break:keep-all}
+  .line b{color:var(--gold); font-weight:900; text-shadow:0 0 26px rgba(255,205,120,.55)}
+  .line .dim{color:var(--dim); font-weight:600; font-size:.82em}
+  .line .big{display:inline-block; font-size:1.7em; letter-spacing:2px; margin-top:.15em}
+
+  /* CTA */
+  .cta{position:absolute; width:88%; max-width:640px; text-align:center; opacity:0;
+    transform:translateY(18px); transition:opacity 1.1s ease, transform 1.1s ease}
+  .cta.is-on{opacity:1; transform:translateY(0)}
+  .cta__logo{font-size:clamp(46px,11vw,84px); font-weight:900; letter-spacing:3px;
+    color:#fff; text-shadow:0 0 40px rgba(255,205,120,.7)}
+  .cta__spark{font-size:.55em; vertical-align:.28em; margin-left:.1em}
+  .cta__tag{margin-top:.35em; font-size:clamp(15px,3.6vw,20px); color:var(--gold-hi); font-weight:700}
+  .cta__sub{margin-top:1.4em; font-size:clamp(13px,3vw,16px); color:var(--dim); letter-spacing:.3px}
+  .cta__url{margin-top:.5em; font-size:clamp(12px,2.6vw,14px); color:#8f8cb0}
+  .replay{margin-top:1.8em; display:inline-flex; align-items:center; gap:8px;
+    padding:12px 22px; border-radius:999px; border:1.5px solid rgba(255,210,130,.5);
+    background:rgba(255,210,130,.08); color:var(--gold-hi); font-weight:800; font-size:14px;
+    cursor:pointer; transition:background .2s, transform .1s}
+  .replay:hover{background:rgba(255,210,130,.16)}
+  .replay:active{transform:scale(.97)}
+  .replay:focus-visible{outline:2px solid var(--gold); outline-offset:3px}
+
+  /* progress */
+  .bar{position:absolute; left:0; bottom:0; height:3px; width:0; z-index:5;
+    background:linear-gradient(90deg,#f5a623,#ffe9a8); box-shadow:0 0 12px rgba(255,205,120,.6)}
+  .hint{position:absolute; left:0; right:0; bottom:16px; text-align:center; font-size:11px;
+    color:rgba(255,255,255,.45); letter-spacing:1px; z-index:5; transition:opacity .6s}
+</style>
+
+<div id="film" role="img" aria-label="반디 소개 영상 — 밤에서 새벽으로 밝아지는 우리 동네">
+  <canvas id="sky"></canvas>
+  <div class="vignette"></div>
+  <div class="stage" id="stage"></div>
+  <div class="cta" id="cta">
+    <div class="cta__logo">반디<span class="cta__spark">🪰</span></div>
+    <div class="cta__tag">오늘, 첫 등불을 켜보세요</div>
+    <div class="cta__sub">반디 · 우리 동네를 밝히는 봉사</div>
+    <div class="cta__url">jaen0709.github.io/maeum-dongne</div>
+    <button class="replay" id="replay" type="button">↻ 다시 보기</button>
+  </div>
+  <div class="bar" id="bar"></div>
+  <div class="hint" id="hint">화면을 탭하면 다시 재생돼요</div>
+</div>
+
+<script>
+(function(){
+  var film=document.getElementById('film'), cv=document.getElementById('sky'), ctx=cv.getContext('2d');
+  var stage=document.getElementById('stage'), ctaEl=document.getElementById('cta'),
+      bar=document.getElementById('bar'), hint=document.getElementById('hint'),
+      replay=document.getElementById('replay');
+  var reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  var SCENES=[
+    {t0:600,  t1:4600,  html:'<div class="line">밤이 내려앉은,<br><b>우리 동네</b></div>'},
+    {t0:5100, t1:9100,  html:'<div class="line">봉사, 하고 싶었어요.<br><span class="dim">그런데 늘 멀고, 복잡했죠.</span></div>'},
+    {t0:9600, t1:13600, html:'<div class="line">그래서 만들었어요.<br><b class="big">반디</b></div>'},
+    {t0:14100,t1:18900, html:'<div class="line">작은 선행 하나가,<br><b>반디 한 마리</b>가 됩니다.</div>'},
+    {t0:19400,t1:24700, html:'<div class="line">이웃의 빛이 모이면<br><b>동네가 밝아져요.</b></div>'},
+    {t0:25200,t1:30300, html:'<div class="line">우리 동네를 밝히는 건,<br><b>바로 당신</b>입니다.</div>'}
+  ];
+  var CTA_T=30900, END_T=32200;
+
+  // 씬 요소 생성
+  var sceneEls=SCENES.map(function(s){
+    var d=document.createElement('div'); d.className='scene'; d.innerHTML=s.html; stage.appendChild(d); return d;
+  });
+
+  // 캔버스 크기
+  var W,H,DPR;
+  function resize(){
+    DPR=Math.min(2,window.devicePixelRatio||1);
+    W=film.clientWidth; H=film.clientHeight;
+    cv.width=W*DPR; cv.height=H*DPR; ctx.setTransform(DPR,0,0,DPR,0,0);
+  }
+  window.addEventListener('resize',resize); resize();
+
+  // 반디 글로우 스프라이트
+  var glow=document.createElement('canvas'); glow.width=glow.height=64;
+  var gx=glow.getContext('2d');
+  var gg=gx.createRadialGradient(32,32,0,32,32,32);
+  gg.addColorStop(0,'rgba(255,244,200,1)');
+  gg.addColorStop(.28,'rgba(255,210,120,.85)');
+  gg.addColorStop(1,'rgba(255,190,90,0)');
+  gx.fillStyle=gg; gx.fillRect(0,0,64,64);
+
+  // 별 & 반디 파티클
+  var MAX=130, flies=[];
+  for(var i=0;i<MAX;i++){
+    flies.push({x:Math.random(), y:Math.random(), s:6+Math.random()*16,
+      sp:.006+Math.random()*.02, ph:Math.random()*6.28, drift:.02+Math.random()*.05,
+      tw:.6+Math.random()*1.6});
+  }
+  var STARS=[];
+  for(var j=0;j<60;j++) STARS.push({x:Math.random(), y:Math.random()*.6, r:.4+Math.random()*1.2, a:.2+Math.random()*.5});
+
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function mix(c1,c2,t){return [Math.round(lerp(c1[0],c2[0],t)),Math.round(lerp(c1[1],c2[1],t)),Math.round(lerp(c1[2],c2[2],t))];}
+  function rgb(c){return 'rgb('+c[0]+','+c[1]+','+c[2]+')';}
+  function ease(t){return t<.5?2*t*t:1-Math.pow(-2*t+2,2)/2;}
+
+  var NIGHT=[[7,10,26],[26,20,58],[40,28,78]];
+  var DAWN =[[38,28,86],[150,70,110],[245,150,80]];
+
+  function drawSky(p){
+    var e=ease(p);
+    var top=mix(NIGHT[0],DAWN[0],e), mid=mix(NIGHT[1],DAWN[1],e), bot=mix(NIGHT[2],DAWN[2],e);
+    var g=ctx.createLinearGradient(0,0,0,H);
+    g.addColorStop(0,rgb(top)); g.addColorStop(.55,rgb(mid)); g.addColorStop(1,rgb(bot));
+    ctx.globalCompositeOperation='source-over'; ctx.globalAlpha=1;
+    ctx.fillStyle=g; ctx.fillRect(0,0,W,H);
+    // 별 (초반에 진하고 밝아질수록 흐려짐)
+    ctx.globalCompositeOperation='lighter';
+    var sa=Math.max(0,1-p*1.8);
+    for(var k=0;k<STARS.length;k++){var st=STARS[k];
+      ctx.globalAlpha=st.a*sa; ctx.fillStyle='#dfe6ff';
+      ctx.beginPath(); ctx.arc(st.x*W, st.y*H, st.r, 0, 6.283); ctx.fill();}
+    // 지평선 여명(후반)
+    if(p>.5){
+      var sr=(p-.5)/.5, rad=sr*H*1.25;
+      var sg=ctx.createRadialGradient(W*.5,H*1.02,0,W*.5,H*1.02,rad);
+      sg.addColorStop(0,'rgba(255,180,90,'+(.5*sr)+')');
+      sg.addColorStop(1,'rgba(255,180,90,0)');
+      ctx.globalAlpha=1; ctx.fillStyle=sg; ctx.fillRect(0,0,W,H);
+    }
+  }
+  function drawFlies(p,t){
+    var active=Math.floor(ease(p)*MAX*.98)+ (p>0?2:0);
+    ctx.globalCompositeOperation='lighter';
+    for(var i=0;i<active && i<MAX;i++){
+      var f=flies[i];
+      f.y-=f.sp*0.9/60*0 + 0; // (motion below by time)
+      var yy=(f.y - t*0.00002*f.sp*40); yy=((yy%1)+1)%1;
+      var xx=f.x + Math.sin(t*0.0006*f.tw + f.ph)*f.drift; xx=((xx%1)+1)%1;
+      var twk=.45+.55*Math.sin(t*0.002*f.tw + f.ph);
+      var fade=Math.min(1,(active-i)/10);
+      ctx.globalAlpha=Math.max(0,twk)*fade*.95;
+      var s=f.s*(0.8+0.5*Math.sin(t*0.001*f.tw+f.ph));
+      ctx.drawImage(glow, xx*W - s/2, yy*H - s/2, s, s);
+    }
+    ctx.globalAlpha=1; ctx.globalCompositeOperation='source-over';
+  }
+
+  function setText(el){
+    for(var i=0;i<SCENES.length;i++){
+      var on = el>=SCENES[i].t0 && el<SCENES[i].t1;
+      sceneEls[i].classList.toggle('is-on',on);
+    }
+    if(el>=CTA_T) ctaEl.classList.add('is-on'); else ctaEl.classList.remove('is-on');
+  }
+
+  var start=null, raf=null, done=false;
+  function loop(ts){
+    if(start==null) start=ts;
+    var el=ts-start;
+    var p=Math.min(1, el/ (CTA_T-800));
+    drawSky(p); drawFlies(p, el);
+    setText(el);
+    bar.style.width=Math.min(100, el/CTA_T*100)+'%';
+    if(el> 1500) hint.style.opacity='0';
+    raf=requestAnimationFrame(loop);
+  }
+  function play(){
+    cancelAnimationFrame(raf); start=null; done=false;
+    ctaEl.classList.remove('is-on'); hint.style.opacity='';
+    if(reduce){ // 모션 최소화: 새벽 정지 화면 + CTA
+      drawSky(1); drawFlies(1, 4000); setText(CTA_T); bar.style.width='100%'; return;
+    }
+    raf=requestAnimationFrame(loop);
+  }
+  replay.addEventListener('click', function(e){ e.stopPropagation(); play(); });
+  film.addEventListener('click', play);
+  play();
+})();
+</script>
