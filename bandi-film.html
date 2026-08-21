@@ -198,25 +198,44 @@
     var AC=window.AudioContext||window.webkitAudioContext; if(!AC) return null;
     var ac; try{ ac=new AC(); }catch(e){ return null; }
     var master=ac.createGain(); master.gain.value=0.0001;
-    var comp=ac.createDynamicsCompressor(); master.connect(comp); comp.connect(ac.destination);
+    var comp=ac.createDynamicsCompressor();
+    master.connect(comp); comp.connect(ac.destination);
     var destStream=null; if(withDest){ var dn=ac.createMediaStreamDestination(); comp.connect(dn); destStream=dn.stream; }
-    var delay=ac.createDelay(1.0); delay.delayTime.value=0.3; var fb=ac.createGain(); fb.gain.value=0.33; var wet=ac.createGain(); wet.gain.value=0.5;
-    delay.connect(fb); fb.connect(delay); delay.connect(wet); wet.connect(master);
-    var padF=ac.createBiquadFilter(); padF.type='lowpass'; padF.frequency.value=450; var pad=ac.createGain(); pad.gain.value=0.0001; padF.connect(pad); pad.connect(master);
-    [130.81,196.00].forEach(function(f){ [1,1.006].forEach(function(m){ var o=ac.createOscillator(); o.type='sine'; o.frequency.value=f*m; o.connect(padF); o.start(); }); });
+    // 잔잔한 리버브(피드백 딜레이 + 로패스)
+    var d1=ac.createDelay(1.5); d1.delayTime.value=0.33;
+    var d1f=ac.createBiquadFilter(); d1f.type='lowpass'; d1f.frequency.value=2100;
+    var d1g=ac.createGain(); d1g.gain.value=0.42;
+    d1.connect(d1f); d1f.connect(d1g); d1g.connect(d1);
+    var wet=ac.createGain(); wet.gain.value=0.6; d1.connect(wet); wet.connect(master);
+    function rev(node){ node.connect(master); node.connect(d1); }
     var now=ac.currentTime;
+    // 부드러운 크레셴도
     master.gain.setValueAtTime(0.0001,now);
-    master.gain.exponentialRampToValueAtTime(0.16,now+3);
-    master.gain.linearRampToValueAtTime(0.30,now+21);
-    master.gain.linearRampToValueAtTime(0.34,now+30);
-    master.gain.linearRampToValueAtTime(0.26,now+36);
-    pad.gain.setValueAtTime(0.0001,now); pad.gain.exponentialRampToValueAtTime(0.10,now+4); pad.gain.linearRampToValueAtTime(0.16,now+26);
-    padF.frequency.setValueAtTime(400,now); padF.frequency.linearRampToValueAtTime(1500,now+30);
-    var scale=[523.25,587.33,659.25,783.99,880.00,1046.50], seq=[0,2,4,2,1,3,5,3], step=0.62, count=Math.floor(37/step);
-    for(var i=0;i<count;i++){ var t=now+0.8+i*step, freq=scale[seq[i%seq.length]], vel=0.05+Math.min(0.09,i*0.0022);
-      var o=ac.createOscillator(); o.type='triangle'; o.frequency.value=freq;
-      var g=ac.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(vel,t+0.03); g.gain.exponentialRampToValueAtTime(0.0001,t+1.5);
-      o.connect(g); g.connect(master); g.connect(delay); o.start(t); o.stop(t+1.55); }
+    master.gain.exponentialRampToValueAtTime(0.20,now+4);
+    master.gain.linearRampToValueAtTime(0.27,now+22);
+    master.gain.linearRampToValueAtTime(0.31,now+30);
+    master.gain.linearRampToValueAtTime(0.22,now+37);
+    // 따뜻한 코드 패드 (C → Em7 → Am7 → Fmaj7, 슬로우 어택/릴리즈로 겹침)
+    var chords=[[130.81,196.00,261.63,329.63],[164.81,196.00,246.94,329.63],[110.00,164.81,261.63,329.63],[174.61,261.63,329.63,440.00]];
+    var cd=7.6;
+    for(var ci=0; ci*cd<41; ci++){ var ch=chords[ci%chords.length], ct=now+ci*cd;
+      ch.forEach(function(f){ var o=ac.createOscillator(); o.type='sine'; o.frequency.value=f;
+        var lf=ac.createBiquadFilter(); lf.type='lowpass'; lf.frequency.value=950;
+        var g=ac.createGain(); g.gain.setValueAtTime(0.0001,ct); g.gain.linearRampToValueAtTime(0.05,ct+2.4);
+        g.gain.setValueAtTime(0.05,ct+cd-1.6); g.gain.linearRampToValueAtTime(0.0001,ct+cd+0.7);
+        o.connect(lf); lf.connect(g); rev(g); o.start(ct); o.stop(ct+cd+1.1); });
+    }
+    // 뮤직박스풍 멜로디 (쉼표 있는 잔잔한 선율)
+    var MEL=[[1.0,329.63],[2.4,392.00],[3.9,523.25],[6.0,493.88],[7.6,440.00],
+      [9.4,392.00],[10.8,329.63],[12.2,293.66],[14.0,329.63],[15.4,392.00],[17.2,523.25],
+      [19.0,659.25],[20.1,587.33],[21.2,523.25],[22.4,587.33],[23.7,659.25],[25.0,783.99],[26.4,659.25],[27.6,523.25],
+      [29.0,440.00],[30.4,523.25],[31.9,493.88],[33.2,392.00],[34.7,523.25],[36.2,659.25]];
+    MEL.forEach(function(m){ var t=now+m[0], f=m[1];
+      var o=ac.createOscillator(); o.type='sine'; o.frequency.value=f;
+      var o2=ac.createOscillator(); o2.type='sine'; o2.frequency.value=f*2;
+      var g=ac.createGain(); g.gain.setValueAtTime(0.0001,t); g.gain.linearRampToValueAtTime(0.11,t+0.015); g.gain.exponentialRampToValueAtTime(0.0001,t+2.0);
+      var g2=ac.createGain(); g2.gain.setValueAtTime(0.0001,t); g2.gain.linearRampToValueAtTime(0.028,t+0.015); g2.gain.exponentialRampToValueAtTime(0.0001,t+1.3);
+      o.connect(g); o2.connect(g2); rev(g); rev(g2); o.start(t); o.stop(t+2.1); o2.start(t); o2.stop(t+1.4); });
     return {ac:ac, destStream:destStream};
   }
 
